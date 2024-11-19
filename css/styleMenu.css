@@ -1,0 +1,63 @@
+.menu-item {
+    text-decoration: none;
+    color: #4d774e; /* Verde natural */
+    transition: transform 0.3s, background-color 0.3s;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 150px; /* Anchura uniforme */
+    height: 150px; /* Altura uniforme */
+    margin: 10px auto; /* Separación uniforme */
+}
+
+.menu-item:hover {
+    background-color: #8ec5a0; /* Fondo verde claro */
+    color: #ffffff;
+    transform: scale(1.1); /* Ampliar ligeramente */
+}
+
+.menu-item i {
+    transition: transform 0.3s, color 0.3s;
+    font-size: 40px; /* Tamaño del ícono */
+    margin-bottom: 10px; /* Separación entre ícono y texto */
+}
+
+.menu-item:hover i {
+    color: #ffffff;
+    transform: scale(1.3); /* Agrandar icono */
+}
+
+.menu-item span {
+    font-size: 16px; /* Tamaño del texto */
+    font-weight: bold;
+    text-align: center;
+}
+
+header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+header h1 {
+    margin: 0;
+}
+
+header a {
+    text-decoration: none;
+    font-weight: bold;
+    color: #4d774e;
+    transition: color 0.3s, background-color 0.3s;
+    border: 1px solid #4d774e;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+header a:hover {
+    background-color: #4d774e;
+    color: #fff;
+}
+

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menú Naturista</title>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <!-- Font Awesome para los iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/styleMenu.css">
+</head>
+<body class="bg-light">
+    <div class="container mt-5">
+        <div class="card shadow-lg p-4">
+            <h1 class="text-center text-success mb-4">Menú Principal</h1>
+            <div class="row">
+                <!-- Inventario -->
+                <div class="col-md-6 col-lg-3 text-center">
+                    <button id="btnInventario"  class="menu-item btn btn-light p-3 shadow-sm d-flex flex-column align-items-center">
+                        <i class="fa-solid fa-leaf fa-2x mb-2"></i>
+                        <span>Inventario</span>
+                    </button>
+                </div>
+                <!-- Libro de Ventas -->
+                <div class="col-md-6 col-lg-3 text-center">
+                    <button id="btnLibroVentas" class="menu-item btn btn-light p-3 shadow-sm d-flex flex-column align-items-center">
+                        <i class="fa-solid fa-book fa-2x mb-2"></i>
+                        <span>Libro de Ventas</span>
+                    </button>
+                </div>
+                <!-- Gestor de Clientes -->
+                <div class="col-md-6 col-lg-3 text-center">
+                    <button id="btnGestorClientes" class="menu-item btn btn-light p-3 shadow-sm d-flex flex-column align-items-center">
+                        <i class="fa-solid fa-users fa-2x mb-2"></i>
+                        <span>Gestor de Clientes</span>
+                    </button>
+                </div>
+                <!-- Facturas Electrónicas -->
+                <div class="col-md-6 col-lg-3 text-center">
+                    <button id="btnFacturasElectronicas" class="menu-item btn btn-light p-3 shadow-sm d-flex flex-column align-items-center">
+                        <i class="fa-solid fa-file-invoice fa-2x mb-2"></i>
+                        <span>Facturas Electrónicas</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/js/main.js"></script>
+
+    <!-- Bootstrap JS and dependencias -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

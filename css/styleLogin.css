@@ -1,0 +1,97 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: sans-serif;
+}
+
+body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: linear-gradient(to right, #a3c9a8, #8ec5a0); /* Tonos verdes relajantes */
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    background: #f9f9f9; /* Fondo claro y suave */
+    text-align: center;
+    padding: 25px 30px;
+    border-radius: 8px; /* Bordes redondeados */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 400px;
+}
+
+form .title {
+    color: #4d774e; /* Verde oscuro para el título */
+    font-size: 35px;
+    font-weight: 800;
+    margin-bottom: 30px;
+}
+
+form label {
+    display: flex;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+form label .fa-solid {
+    font-size: 20px;
+    color: #4d774e; /* Verde oscuro para los iconos */
+    margin-right: 10px;
+}
+
+form label input {
+    outline: none;
+    border: none;
+    border-bottom: 2px solid #8ec5a0; /* Línea verde suave en el campo de entrada */
+    padding: 5px;
+    font-size: 18px;
+    color: #333;
+    background-color: transparent;
+    flex: 1;
+}
+
+form label input::placeholder {
+    color: rgba(0, 0, 0, 0.5); /* Color de los placeholders */
+}
+
+form button {
+    color: #fff;
+    border: none;
+    background: linear-gradient(to right, #4d774e, #81c784); /* Botón verde degradado */
+    padding: 12px 20px;
+    cursor: pointer;
+    font-size: 20px;
+    border-radius: 5px; /* Bordes redondeados en el botón */
+    transition: background 0.3s;
+}
+
+form button:hover {
+    background: #4d774e; /* Color sólido en hover */
+}
+
+#error-message {
+    display: none;
+    color: #b00020; /* Rojo suave para el texto del error */
+    background-color: #f8d7da; /* Fondo rosado claro */
+    padding: 10px;
+    margin-top: 15px;
+    border-radius: 5px;
+    border: 1px solid #b00020; /* Borde rojo */
+    font-size: 14px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+#error-message::before {
+    content: "\26A0"; /* Icono de advertencia */
+    font-size: 18px;
+    color: #b00020;
+}
