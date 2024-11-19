@@ -1,8 +1,8 @@
 document.getElementById('loginForm').addEventListener('submit', function (event) {
     event.preventDefault();
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
 
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value; 
     // Simulación de autenticación
     if (username === 'usuario' && password === 'contraseña') {  // Cambia a los valores que necesites
         localStorage.setItem('isAuthenticated', 'true');  // Guardamos el estado de autenticación
@@ -15,16 +15,5 @@ document.getElementById('loginForm').addEventListener('submit', function (event)
     }
 });
 
-document.addEventListener("DOMContentLoaded", function () {
-    // Obtener el botón de Inventario
-    const btnInventario = document.getElementById("btnInventario");
-
-    // Verificar que el botón exista y añadirle un event listener
-    if (btnInventario) {
-        btnInventario.addEventListener("click", function () {
-            alert("¡Has presionado el botón de Inventario!");
-        });
-    }
-});
 
 
