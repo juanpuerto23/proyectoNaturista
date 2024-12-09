@@ -1,0 +1,64 @@
+/* Estilo general */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: sans-serif;
+}
+
+body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: linear-gradient(to right, #a3c9a8, #8ec5a0); /* Fondo verde relajante */
+}
+
+.container {
+    text-align: center;
+    background: #f9f9f9; /* Fondo claro */
+    padding: 25px 30px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 500px;
+}
+
+.title {
+    color: #4d774e; /* Verde oscuro */
+    font-size: 35px;
+    font-weight: 800;
+    margin-bottom: 30px;
+}
+
+/* Botones */
+button {
+    color: #fff;
+    border: none;
+    background: linear-gradient(to right, #4d774e, #81c784); /* Botón verde degradado */
+    padding: 12px 20px;
+    cursor: pointer;
+    font-size: 20px;
+    border-radius: 5px;
+    transition: transform 0.2s ease-in-out, background 0.3s;
+    margin: 10px 0;
+}
+
+button:hover {
+    background: #4d774e; /* Verde sólido */
+    transform: scale(1.05); /* Efecto de aumento */
+}
+
+/* Animación de pulso */
+.animated-button {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}

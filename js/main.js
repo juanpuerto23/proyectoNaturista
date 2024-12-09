@@ -4,7 +4,7 @@ document.getElementById('loginForm').addEventListener('submit', function (event)
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value; 
     // Simulación de autenticación
-    if (username === 'usuario' && password === 'contraseña') {  // Cambia a los valores que necesites
+    if (username === 'admin' && password === 'admin') {  // Cambia a los valores que necesites
         localStorage.setItem('isAuthenticated', 'true');  // Guardamos el estado de autenticación
         window.location.href = 'menu.html';  // Redirigimos al menú
     } else {
