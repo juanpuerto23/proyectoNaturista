@@ -1,76 +1,99 @@
-* {
+/* Fondo general de la página */
+body {
+    background: linear-gradient(to right, #a3c9a8, #8ec5a0); /* Fondo verde relajante */
+    font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
-    font-family: sans-serif;
 }
 
-body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    background: linear-gradient(to right, #a3c9a8, #8ec5a0); /* Fondo verde relajante */
-}
-
-.container {
-    background: #f9f9f9; /* Fondo claro */
-    padding: 25px 30px;
-    border-radius: 8px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-    width: 100%;
-    max-width: 600px;
-}
-
-.title {
-    color: #4d774e; /* Verde oscuro */
-    font-size: 35px;
-    font-weight: 800;
-    text-align: center;
-    margin-bottom: 30px;
-}
-
-/* Estilo del formulario */
-form {
-    display: flex;
-    flex-direction: column;
-}
-
-form label {
-    margin-bottom: 15px;
-    font-size: 18px;
+/* Encabezados */
+h2 {
+    font-weight: bold;
     color: #4d774e;
-    display: flex;
-    flex-direction: column;
 }
 
-form input, form textarea {
-    outline: none;
-    border: 2px solid #8ec5a0; /* Borde verde */
-    padding: 10px;
-    font-size: 16px;
+/* Información del vendedor y cliente */
+.bg-light {
+    background-color: #f9f9f9 !important;
+    border: 1px solid #a3c9a8;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Tabla */
+.table {
+    background-color: #fff;
+    border: 1px solid #dee2e6;
     border-radius: 5px;
-    background-color: #f9f9f9; /* Fondo claro */
-    margin-top: 5px;
+    overflow: hidden;
 }
 
-form textarea {
-    resize: none; /* No permitir cambiar tamaño */
+.table th {
+    background-color: #4d774e; /* Encabezado verde oscuro */
+    color: #fff;
+    text-align: center;
+    font-weight: bold;
 }
 
-form button {
+.table td input {
+    text-align: center;
+    border: none;
+    outline: none;
+    width: 100%;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: #f1f8f5; /* Rayas verdes suaves */
+}
+
+.table-striped tbody tr:hover {
+    background-color: #e6f4ea; /* Hover en filas */
+}
+
+/* Mensajes finales */
+.text-muted, .text-secondary {
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
+/* Total General */
+#valorTotalGeneral {
+    font-size: 1.5rem;
+    color: #4d774e;
+    font-weight: bold;
+}
+
+/* Personalización de inputs */
+.form-control {
+    border: 1px solid #a3c9a8;
+    border-radius: 5px;
+}
+
+.form-control:focus {
+    box-shadow: 0 0 5px rgba(77, 119, 78, 0.7);
+    border-color: #4d774e;
+}
+
+/* Modal Header Title */
+.modal-title {
+    font-weight: bold;
+    color: #4d774e; /* Verde natural */
+}
+
+/* Botón Finalizar */
+#btnFinalizar {
+    background: linear-gradient(to right, #4d774e, #81c784);
     color: #fff;
     border: none;
-    background: linear-gradient(to right, #4d774e, #81c784); /* Botón verde degradado */
-    padding: 12px 20px;
-    cursor: pointer;
-    font-size: 20px;
-    border-radius: 5px;
-    transition: background 0.3s, transform 0.2s ease-in-out;
-    margin-top: 20px;
+    transition: background 0.3s ease;
 }
 
-form button:hover {
-    background: #4d774e; /* Verde sólido */
-    transform: scale(1.05); /* Efecto de aumento */
+#btnFinalizar:hover {
+    background-color: #4d774e;
+}
+
+/* Checkbox */
+.form-check-input:checked {
+    background-color: #4d774e;
+    border-color: #4d774e;
 }

@@ -1,3 +1,4 @@
+// Funcion para el login
 document.getElementById('loginForm').addEventListener('submit', function (event) {
     event.preventDefault();
 
@@ -14,6 +15,3 @@ document.getElementById('loginForm').addEventListener('submit', function (event)
         errorMessage.textContent = 'Usuario o contraseña incorrectos. Por favor, intenta de nuevo.';
     }
 });
-
-
-

@@ -1,44 +1,204 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crear Factura</title>
+    <title>Facturación</title>
     <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Archivo CSS personalizado -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="/css/styleBill.css">
 </head>
 <body>
-    <div class="container mt-5">
-        <div class="card shadow p-4">
-            <h1 class="title text-center mb-4">Crear Factura</h1>
-            <form action="exportar_factura.php" method="POST">
-                <div class="mb-3">
-                    <label for="nombre_cliente" class="form-label">Nombre del Cliente:</label>
-                    <input type="text" id="nombre_cliente" name="nombre_cliente" class="form-control" placeholder="Ingresa el nombre del cliente" required>
+    <!-- Contenedor principal -->
+    <div class="container mt-5 mb-5">
+        <!-- Título de la página -->
+        <h2 class="text-center mb-4 text-success">Sistema de Facturación Electronica</h2>
+        
+        <!-- Información del Vendedor y del Cliente -->
+        <div class="row mb-4">
+            <div class="col-md-6 border p-3 rounded shadow-sm bg-light">
+                <h5 class="text-success">Información del Vendedor</h5>
+                <p><strong>Nombre:</strong> Farmacia Homeopática</p>
+                <p><strong>NIT:</strong> 123.456.789-0</p>
+                <p><strong>Dirección:</strong> Calle 123 #45-67</p>
+                <p><strong>Teléfono:</strong> +57 123 456 7890</p>
+            </div>
+            <div class="col-md-6 border p-3 rounded shadow-sm bg-light">
+                <h5 class="text-success">Información del Cliente</h5>
+                <form>
+                    <div class="form-group">
+                        <label for="tipoDocumento">Tipo de Documento</label>
+                        <select class="form-control" id="tipoDocumento">
+                            <option>Cédula de Ciudadania</option>
+                            <option>Cédula de Extranjeria</option>
+                            <option>NIT</option>
+                            <option>Pasaporte</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="tipoDocumento">Numero de Documento</label>
+                        <input type="text" class="form-control" id="idDocumentoCliente" placeholder="Numero del documento del Cliente">
+                    </div>
+                    <div class="form-group">
+                        <label for="nombreCliente">Nombre Completo del Cliente</label>
+                        <input type="text" class="form-control" id="nombreCliente" placeholder="Nombre del Cliente">
+                    </div>
+                    <div class="form-group">
+                        <label for="tipoDocumento">Email del cliente</label>
+                        <input type="text" class="form-control" id="emailCliente" placeholder="Email del Cliente">
+                    </div>
+                    <div class="form-group">
+                        <label for="fechaFactura">Fecha de Expedición de la Factura</label>
+                        <div class="d-flex">
+                            <input type="text" class="form-control mr-1" placeholder="Día">
+                            <input type="text" class="form-control mr-1" placeholder="Mes">
+                            <input type="text" class="form-control" placeholder="Año">
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tabla de Productos -->
+        <div class="table-responsive">
+            <table id="tablaProductos" class="table table-bordered table-striped">
+                <thead class="thead-dark text-center">
+                    <tr>
+                        <th>Descripción</th>
+                        <th>Precio Unitario</th>
+                        <th>Cantidad</th>
+                        <th>Descuento (%)</th>
+                        <th>IVA (%)</th>
+                        <th>Valor Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><input type="text" class="descripcion form-control" placeholder="Producto"></td>
+                        <td><input type="number" class="precioUnitario form-control" placeholder="$0.00"></td>
+                        <td><input type="number" class="cantidad form-control" placeholder="0"></td>
+                        <td><input type="number" class="descuento form-control" placeholder="0"></td>
+                        <td><input type="number" class="iva form-control" placeholder="0"></td>
+                        <td><input type="text" class="valorTotal form-control" readonly></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Total General -->
+        <div class="text-right mt-3">
+            <h5><strong>Total General: $<span id="valorTotalGeneral">0.00</span></strong></h5>
+        </div>
+
+        <!-- Boton Finalizar -->
+        <div class="text-center my-4">
+            <button id="btnFinalizar" class="btn btn-success btn-lg" onclick="mostrarTerminos()"> 
+                Finalizar
+            </button>
+        </div>        
+
+        <!-- Resolución DIAN -->
+        <p class="text-center text-muted mt-4">
+            <small>Resolución DIAN N° 000042 del 05-05-2020</small>
+        </p>
+
+        <!-- Mensaje Final -->
+        <p class="text-center mt-3 text-secondary">
+            <small>Documento con autorización según la DIAN. Al recibir esta factura electrónica se autoriza el tratamiento de datos personales según la ley colombiana.</small>
+        </p>
+    </div>
+
+    <!-- Modal Términos y Condiciones -->
+    <div class="modal" id="modalTerminos" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Términos y Condiciones</h5>
                 </div>
-                <div class="mb-3">
-                    <label for="documento_cliente" class="form-label">Documento del Cliente:</label>
-                    <input type="text" id="documento_cliente" name="documento_cliente" class="form-control" placeholder="Cédula/NIT" required>
+                <div class="modal-body">
+                    <p>Se autoriza el tratamiento de datos personales según la ley colombiana.</p>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="aceptarTerminos">
+                        <label class="form-check-label" for="aceptarTerminos">Acepto los términos y condiciones</label>
+                    </div>
                 </div>
-                <div class="mb-3">
-                    <label for="direccion_cliente" class="form-label">Dirección:</label>
-                    <input type="text" id="direccion_cliente" name="direccion_cliente" class="form-control" placeholder="Dirección del cliente" required>
+                <div class="modal-footer">
+                    <button class="btn btn-success" onclick="finalizar()">Finalizar</button>
                 </div>
-                <div class="mb-3">
-                    <label for="detalles_producto" class="form-label">Detalles del Producto:</label>
-                    <textarea id="detalles_producto" name="detalles_producto" class="form-control" placeholder="Descripción del producto" rows="4" required></textarea>
-                </div>
-                <div class="mb-3">
-                    <label for="total" class="form-label">Total a Pagar:</label>
-                    <input type="number" id="total" name="total" class="form-control" placeholder="Total en COP" required>
-                </div>
-                <button type="submit" class="btn btn-success btn-lg w-100">Exportar Factura</button>
-            </form>
+            </div>
         </div>
     </div>
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/main.js"></script>
+    <script>
+    // Evento que detecta cambios en los campos de la tabla
+    document.getElementById('tablaProductos').addEventListener('input', function (e) {
+        const fila = e.target.closest('tr'); // Selecciona la fila actual donde ocurrió el input
+        const inputs = fila.querySelectorAll('input'); // Obtiene todos los inputs de la fila
+        
+        // Verifica si todos los campos de la fila están llenos
+        if ([...inputs].every(input => input.value.trim() !== '')) {
+            // Si no es la última fila, no genera otra fila
+            if (!fila.nextElementSibling) {
+                agregarFila();
+            }
+        }
+        calcularTotal();
+    });
+
+    // Función para agregar una nueva fila
+    function agregarFila() {
+        const tabla = document.querySelector('#tablaProductos tbody');
+        const filaNueva = tabla.rows[0].cloneNode(true); // Clona la primera fila
+        filaNueva.querySelectorAll('input').forEach(input => input.value = ''); // Limpia los campos
+        tabla.appendChild(filaNueva); // Agrega la nueva fila al final de la tabla
+    }
+
+    // Función para calcular el total de los valores ingresados
+    function calcularTotal() {
+        const filas = document.querySelectorAll('#tablaProductos tbody tr'); // Todas las filas de la tabla
+        let total = 0;
+
+        filas.forEach(fila => {
+            const precioUnitario = parseFloat(fila.querySelector('.precioUnitario')?.value) || 0;
+            const cantidad = parseFloat(fila.querySelector('.cantidad')?.value) || 0;
+            const descuento = parseFloat(fila.querySelector('.descuento')?.value) || 0;
+            const iva = parseFloat(fila.querySelector('.iva')?.value) || 0;
+
+            const subtotal = (precioUnitario * cantidad) - descuento;
+            const totalFila = subtotal + (subtotal * (iva / 100));
+            
+            total += totalFila;
+
+            // Actualiza el valor total de la fila actual si existe un campo para mostrarlo
+            const campoTotalFila = fila.querySelector('.valorTotal');
+            if (campoTotalFila) {
+                campoTotalFila.value = totalFila.toFixed(2);
+            }
+        });
+
+        // Muestra el total acumulado
+        document.getElementById('valorTotalGeneral').textContent = total.toFixed(2);
+    }
+    // Mostrar términos
+    function mostrarTerminos() {
+        document.getElementById('modalTerminos').style.display = 'block';
+    }
+
+    function finalizar() {
+        if (document.getElementById('aceptarTerminos').checked) {
+            alert('Factura generada correctamente.');
+            window.location.reload();
+        } else {
+            alert('Debe aceptar los términos y condiciones.');
+        }
+    }
+
+    </script>
+
 </body>
 </html>
