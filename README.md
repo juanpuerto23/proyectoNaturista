@@ -2,7 +2,6 @@
 
 Este proyecto se trata de hacer un sistema para Farmacias Naturistas en donde se podra ver el inventario disponible, ver el libro de ventas, ver los datos de los clientes que se manejan y hacer facturas electronicas. Este proyecto esta hecho con HTML, CSS y JavaScript. Ademas la pagina esta conectada a una base de datos. Tambien es preciso agregar que el proyecto esta apoyada con Bootstrap para resolver el tema de Responsive Web. 
 
-[![License: WTFPL](https://img.shields.io/badge/License-WTFPL-brightgreen.svg)](http://www.wtfpl.net/about/)
 ![GitHub](https://img.shields.io/github/commit-activity/m/juanpuerto23/ProyectoNaturista)
 
 ## Configuracion del proyecto
