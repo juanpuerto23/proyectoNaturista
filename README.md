@@ -10,7 +10,7 @@ Este proyecto se trata de hacer un sistema para Farmacias Naturistas en donde se
 El siguiente proyecto no necesita mucho espacio en el disco (Pesa menos de 100 MB). Igual para quien no tenga claro aqui van algunos pasos que puede seguir para que pueda ejecutar el proyecto en su IDE favorito. 
 
 > [!NOTE]
-> Personalmente recomiendo tener la extension Live Server instalada, asi, usted mismo podra ver el proyecto de manera local en su navegador una vez clonado el repo. Si no desea clonar el repo, puede ir a la [pagina web](proyecto-naturista.vercel.app), el usuario y la password puede ser encontrada facilmente en el archivo JavaScript ubicada en el proyecto.
+> Personalmente recomiendo tener la extension Live Server instalada, asi, usted mismo podra ver el proyecto de manera local en su navegador una vez clonado el repo. Si no desea clonar el repo, puede ir a la [pagina web](https://proyecto-naturista.vercel.app), el usuario y la password puede ser encontrada facilmente en el archivo JavaScript ubicada en el proyecto.
 
 Dejando en claro lo siguiente seguimos con la instalacion del proyecto:
 
