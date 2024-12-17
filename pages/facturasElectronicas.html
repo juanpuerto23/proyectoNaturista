@@ -41,8 +41,12 @@
                         <input type="text" class="form-control" id="idDocumentoCliente" placeholder="Numero del documento del Cliente">
                     </div>
                     <div class="form-group">
-                        <label for="nombreCliente">Nombre Completo del Cliente</label>
+                        <label for="nombreCliente">Nombre del Cliente</label>
                         <input type="text" class="form-control" id="nombreCliente" placeholder="Nombre del Cliente">
+                    </div>
+                    <div class="form-group">
+                        <label for="nombreCliente">Apellido del Cliente</label>
+                        <input type="text" class="form-control" id="nombreCliente" placeholder="Apellido del Cliente">
                     </div>
                     <div class="form-group">
                         <label for="tipoDocumento">Email del cliente</label>
@@ -65,6 +69,7 @@
             <table id="tablaProductos" class="table table-bordered table-striped">
                 <thead class="thead-dark text-center">
                     <tr>
+                        <th>Codigo</th>
                         <th>Descripción</th>
                         <th>Precio Unitario</th>
                         <th>Cantidad</th>
@@ -75,11 +80,12 @@
                 </thead>
                 <tbody>
                     <tr>
+                        <td><input type="number" class="codigo form-control" placeholder="Codigo" min="0"></td>
                         <td><input type="text" class="descripcion form-control" placeholder="Producto"></td>
-                        <td><input type="number" class="precioUnitario form-control" placeholder="$0.00"></td>
-                        <td><input type="number" class="cantidad form-control" placeholder="0"></td>
-                        <td><input type="number" class="descuento form-control" placeholder="0"></td>
-                        <td><input type="number" class="iva form-control" placeholder="0"></td>
+                        <td><input type="number" class="precioUnitario form-control" placeholder="$0.00" min="0"></td>
+                        <td><input type="number" class="cantidad form-control" placeholder="0" min="0"></td>
+                        <td><input type="number" class="descuento form-control" placeholder="0" min="0"></td>
+                        <td><input type="number" class="iva form-control" placeholder="0" min="0"></td>
                         <td><input type="text" class="valorTotal form-control" readonly></td>
                     </tr>
                 </tbody>
