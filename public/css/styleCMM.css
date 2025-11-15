@@ -1,0 +1,217 @@
+/* ===============================
+   HerbalSys - Gestión de Clientes
+   =============================== */
+
+/* PALETA DE COLORES */
+:root {
+  --verde-primario: #2E7D32;
+  --verde-claro: #4CAF50;
+  --verde-oscuro: #1B5E20;
+  --blanco: #FFFFFF;
+  --gris-fondo: #F5F5F5;
+  --gris-texto: #6C757D;
+}
+
+/* RESET */
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background-color: var(--gris-fondo);
+  color: #212529;
+  overflow-x: hidden;
+}
+
+/* ====== SIDEBAR ====== */
+#sidebar {
+  background: var(--blanco);
+  border-right: 1px solid #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+#sidebar h6 {
+  font-weight: 600;
+  color: var(--verde-primario);
+}
+
+#sidebar small {
+  font-size: 0.8rem;
+  color: var(--gris-texto);
+}
+
+#sidebar .nav-link {
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--verde-primario);
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+#sidebar .nav-link:hover {
+  background-color: #e8f5e9;
+  transform: translateX(5px);
+}
+
+#sidebar .nav-link.active {
+  background-color: var(--verde-primario);
+  color: var(--blanco) !important;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.4);
+}
+
+/* ====== NAVBAR MÓVIL ====== */
+.navbar {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.navbar-brand {
+  color: var(--verde-primario) !important;
+  font-weight: bold;
+}
+
+.nav-link.disabled {
+  pointer-events: none;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ====== CONTENIDO PRINCIPAL ====== */
+main {
+  background-color: transparent;
+  position: relative;
+  padding-right: 320px;
+
+}
+
+/* ====== TÍTULO Y BOTÓN ====== */
+h2.text-success {
+  color: var(--verde-primario) !important;
+  font-weight: 700;
+}
+
+.btn-success {
+  background-color: var(--verde-primario);
+  border-color: var(--verde-primario);
+  transition: all 0.2s ease;
+}
+
+.btn-success:hover {
+  background-color: var(--verde-oscuro);
+  border-color: var(--verde-oscuro);
+  transform: scale(1.05);
+}
+
+/* ====== BUSCADOR Y FILTROS ====== */
+#clientFilters .form-control,
+#clientFilters .form-select {
+  border-radius: 8px;
+  box-shadow: none;
+  transition: 0.2s ease;
+}
+
+#clientFilters .form-control:focus,
+#clientFilters .form-select:focus {
+  border-color: var(--verde-primario);
+  box-shadow: 0 0 0 0.2rem rgba(46, 125, 50, 0.25);
+}
+
+#btnResetFiltros {
+  border: 1px solid var(--verde-primario);
+  color: var(--verde-primario);
+  background-color: transparent;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+}
+
+#btnResetFiltros:hover {
+  background-color: #e8f5e9;
+  transform: scale(1.05);
+}
+
+/* ====== TABLA ====== */
+.table thead {
+  background-color: #e8f5e9;
+  color: var(--verde-primario);
+  font-weight: 600;
+}
+
+.table-hover tbody tr:hover {
+  background-color: #f1f8e9;
+  transition: 0.2s ease;
+}
+
+.table th,
+.table td {
+  vertical-align: middle;
+}
+
+/* ====== PANEL LATERAL DERECHO ====== */
+#panelDetallesCliente {
+  position: static;
+  right: 0;
+  top: 0;
+  height: auto;
+  width: 300px;
+  background-color: var(--blanco);
+  border-left: 1px solid #e0e0e0;
+  padding: 1.5rem;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.05);
+  overflow-y: auto;
+  transition: transform 0.3s ease;
+  z-index: 1040;
+}
+
+#panelDetallesCliente h5 {
+  color: var(--verde-primario);
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+#panelDetallesCliente p {
+  margin-bottom: 0.5rem;
+  color: var(--gris-texto);
+}
+
+#panelDetallesCliente strong {
+  color: #000;
+}
+
+#panelDetallesCliente span {
+  color: var(--verde-primario);
+  font-weight: 600;
+}
+
+/* ====== MODAL ====== */
+.modal-content {
+  border-radius: 12px;
+}
+
+.modal-header {
+  border-bottom: 1px solid #e0e0e0;
+  background: #e8f5e9;
+}
+
+.modal-title {
+  color: var(--verde-primario);
+  font-weight: 600;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--verde-primario);
+  box-shadow: 0 0 0 0.2rem rgba(46, 125, 50, 0.25);
+}
+
+/* ====== RESPONSIVE ====== */
+@media (max-width: 992px) {
+  #panelDetallesCliente {
+    position: static;
+    width: 100%;
+    height: auto;
+    border-left: none;
+    box-shadow: none;
+    margin-top: 1rem;
+  }
+
+  main {
+    padding-right: 0 !important;
+  }
+}

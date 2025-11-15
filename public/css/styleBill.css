@@ -1,0 +1,301 @@
+/* ============================
+   HerbalSys - Facturación CSS
+   ============================ */
+
+/* PALETA */
+:root{
+  --verde-primario: #2E7D32;
+  --verde-claro:   #4CAF50;
+  --verde-oscuro:  #1B5E20;
+  --blanco:        #FFFFFF;
+  --gris-claro:    #F5F5F5;
+  --gris-texto:    #6C757D;
+  --border:        #e0e0e0;
+}
+
+/* RESET / BASE */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: var(--gris-claro);
+  color: #212529;
+}
+
+/* Contenedor principal a la derecha del sidebar */
+.main-content {
+  margin-left: 250px; /* igual al ancho del sidebar */
+  background-color: #f5f5f5;
+  min-height: 100vh;
+  padding: 30px;
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+}
+
+/* SIDEBAR */
+#sidebar {
+  position: fixed;
+  width: 250px;
+  height: 100vh; /* ocupa toda la altura */
+  padding: 25px 20px;
+  border-right: 1px solid #e0e0e0; /* fino borde derecho */
+  background: #ffffff;
+  border-right: 1px solid #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+#sidebar h6 {
+  font-weight: 600;
+  color: #2E7D32;
+}
+
+#sidebar small {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+#sidebar .nav-link {
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #2E7D32;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+#sidebar .nav-link:hover {
+  background-color: #e8f5e9;
+  transform: translateX(5px);
+}
+
+#sidebar .nav-link.active {
+  background-color: #2E7D32;
+  color: #fff !important;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.4);
+}
+
+
+/* nav lista */
+.nav{
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nav li { margin: 0; }
+.nav a{
+  display: block;
+  padding: 10px 12px;
+  color: var(--verde-primario);
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all .22s ease;
+}
+.nav a:hover{
+  transform: translateX(6px);
+  background: #E8F5E9;
+  color: var(--verde-oscuro);
+}
+.nav a.active{
+  background: var(--verde-primario);
+  color: white !important;
+  box-shadow: 0 6px 18px rgba(46,125,50,0.18);
+}
+.nav-link.disabled {
+  pointer-events: none;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* PANEL CENTRAL (billing) */
+.billing-panel{
+  padding: 0; /* el espacio exterior lo controla main-container */
+  min-height: 100%;
+  width: 100%;
+}
+
+/* Título de la página */
+.billing-panel > h2{
+  color: var(--verde-primario);
+  font-size: 28px;
+  font-weight: 700;
+  margin: 6px 0 22px 0;
+  padding-left: 8px;
+}
+
+/* SECTION: info (vendedor/cliente) */
+.info-section{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+/* Inputs y selects dentro de info-card */
+.info-card input,
+.info-card select,
+input, select, textarea {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid #ced4da;
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--verde-claro);
+  box-shadow: 0 0 6px rgba(76,175,80,0.16);
+}
+
+/* TABLA DE PRODUCTOS */
+.table-container{
+  background: transparent;
+  margin-top: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Estilo de tabla específico a tu HTML (#tablaProductos) */
+#tablaProductos{
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--blanco);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+}
+#tablaProductos thead{
+  background: #E8F5E9; /* coherente con inventario */
+  color: var(--verde-oscuro);
+  font-weight: 700;
+}
+#tablaProductos th,
+#tablaProductos td{
+  padding: 12px 14px;
+  border-bottom: 1px solid #eee;
+  text-align: center;
+}
+#tablaProductos tbody tr:nth-child(even){ background: #fbfefb; }
+#tablaProductos tbody tr:hover{ background: #f1f8f2; }
+
+/* Input dentro de tabla */
+#tablaProductos input{
+  padding:8px;
+  border-radius:8px;
+  border:1px solid #d0d7db;
+  width:100%;
+}
+
+/* PANEL DERECHO (Resumen) */
+.summary-panel{
+  background: var(--blanco);
+  border-left: 1px solid var(--border);
+  padding: 22px;
+  position: relative;
+  border-radius: 8px;
+  min-height: calc(100vh - 56px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Contenido del resumen */
+.summary-content h4{
+  color: var(--verde-primario);
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.summary-item{
+  display:flex;
+  justify-content: space-between;
+  color: var(--gris-texto);
+  margin: 6px 0;
+  font-size: 0.95rem;
+}
+.summary-item.total{
+  color: var(--verde-oscuro);
+  font-weight: 800;
+  font-size: 1.2rem;
+  margin-top: 6px;
+}
+
+/* BOTON PRINCIPAL con animación */
+.btn-success{
+  background: var(--verde-primario);
+  color: white;
+  border: none;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+  display: inline-block;
+  width:100%;
+}
+.btn-success:hover{
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 12px 26px rgba(46,125,50,0.18);
+  background: var(--verde-oscuro);
+}
+
+/* BUTTON outline */
+.btn-delete {
+  background-color: #e53935;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+  position: relative;
+  top: -5px; /* súbelo un poquito para alinearlo */
+  display: inline-flex;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-delete:hover {
+  background-color: #c62828; /* rojo oscuro */
+  transform: scale(1.05);
+  box-shadow: 0 0 6px rgba(229, 57, 53, 0.4);
+}
+
+.btn-delete i {
+  font-size: 16px;
+}
+
+/* Centrado en la celda y evita que se estire */
+td.text-center {
+  vertical-align: middle;
+}
+.table-container, .summary-panel { animation: fadeInUp .36s ease; }
+
+/* UTILIDADES */
+.text-success{ color: var(--verde-primario) !important; }
+.text-muted{ color: var(--gris-texto) !important; }
+
+/* RESPONSIVE */
+@media (max-width: 1100px){
+  .main-container{ grid-template-columns: 200px 1fr 320px; gap: 18px; padding: 18px; }
+  #sidebar{ padding: 16px; }
+}
+@media (max-width: 900px){
+  /* apilar paneles y esconder sidebar (puedes añadir toggle luego) */
+  .main-container{
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+  #sidebar{ display: none; }
+  .summary-panel{
+    order: 3;
+    min-height: auto;
+    position: relative;
+    margin-top: 14px;
+  }
+  .billing-panel{ order: 1; }
+  .info-section{ grid-template-columns: 1fr; }
+}

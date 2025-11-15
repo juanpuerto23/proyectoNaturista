@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HerbalSys - Facturación Electrónica</title>
+    <link rel="stylesheet" href="../css/styleBill.css">
+</head>
+
+<body>
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+        <div class="px-3">
+            <div class="d-flex align-items-center mb-4">
+                <div class="me-2">
+                    <svg width="34" height="34" viewBox="0 0 24 24" fill="green" class="text-success">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.2"></circle>
+                    </svg>
+                </div>
+                <div>
+                    <h6 class="mb-0">HerbalSys</h6>
+                    <small class="text-muted">Tienda Naturista P.O.S</small>
+                </div>
+            </div>
+
+            <ul class="nav nav-pills flex-column">
+                <li class="nav-item mb-1"><a href="../menu.html" class="nav-link">Dashboard</a></li>
+                <li class="nav-item mb-1"><a href="inventario.html" class="nav-link">Inventario</a></li>
+                <li class="nav-item mb-1"><a href="gestorClientesMenu.html" class="nav-link">Gestor de Clientes</a></li>
+                <li class="nav-item mb-1"><a href="facturasElectronicas.html" class="nav-link active">Facturas Electrónicas</a></li>
+                <li class="nav-item mb-1"><a href="reportes.html" class="nav-link">Reportes</a></li>
+            </ul>
+        </div>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <div class="main-content">
+        <main class="billing-panel">
+            <h2>Sistema de Facturación Electrónica</h2>
+
+            <!-- Información del Cliente -->
+            <div class="container-fluid bg-light p-3 rounded mb-4">
+                <h3 class="mb-3 text-success fw-bold">Información del Cliente</h3>
+                <form id="formCliente" class="row g-3 align-items-end">
+                    <div class="col-md-2">
+                        <label>Tipo de Documento</label>
+                        <select>
+                            <option>Cédula de Ciudadanía</option>
+                            <option>Cédula de Extranjería</option>
+                            <option>NIT</option>
+                            <option>Pasaporte</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label>Número de Identificación</label>
+                        <input type="text" placeholder="Documento">
+                    </div>
+                    <div class="col-md-2">
+                        <label>Nombre Completo</label>
+                        <input type="text" placeholder="Nombre">
+                    </div>
+                    <div class="col-md-2">
+                        <label>Email</label>
+                        <input type="email" placeholder="Correo electrónico">
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tabla de Productos -->
+            <div class="table-container">
+                <table id="tablaProductos">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Precio Unidad</th>
+                            <th>Cantidad</th>
+                            <th>Descuento (%)</th>
+                            <th>IVA (%)</th>
+                            <th>Valor Total</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><input type="text" class="nombre" placeholder="Nombre"></td>
+                            <td><input type="number" class="precioUnitario" placeholder="0"></td>
+                            <td><input type="number" class="cantidad" placeholder="0"></td>
+                            <td><input type="number" class="descuento" placeholder="0"></td>
+                            <td><input type="number" class="iva" placeholder="0"></td>
+                            <td><input type="text" class="valorTotal" readonly></td>
+                            <td class="text-center">
+                                <button class="btn-delete d-none" onclick="eliminarFila(this)">Eliminar</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+
+        <!-- Panel derecho -->
+        <div class="summary-panel">
+            <div class="summary-content">
+                <h4>Resumen de Factura</h4>
+                <div class="summary-item">Subtotal: <span id="subtotal">$0.00</span></div>
+                <div class="summary-item">IVA: <span id="iva">$0.00</span></div>
+                <div class="summary-item">Descuento: <span id="descuento">$0.00</span></div>
+                <hr>
+                <div class="summary-item total">Total: <span id="totalFinal">$0.00</span></div>
+            </div>
+            <button id="btnGenerar" class="btn-success">Generar Factura</button>
+        </div>
+    </div>
+    <script>
+        const tabla = document.querySelector('#tablaProductos tbody');
+
+        tabla.addEventListener('input', e => {
+            const fila = e.target.closest('tr');
+            actualizarFila(fila);
+            if ([...fila.querySelectorAll('input')].every(i => i.value.trim() !== '')) agregarFila();
+            calcularTotales();
+        });
+
+        function agregarFila() {
+            const filaNueva = tabla.rows[0].cloneNode(true);
+            filaNueva.querySelectorAll('input').forEach(i => i.value = '');
+            filaNueva.querySelector('button').classList.add('d-none');
+            tabla.appendChild(filaNueva);
+        }
+
+        function eliminarFila(btn) {
+            if (tabla.rows.length > 1) btn.closest('tr').remove();
+            calcularTotales();
+        }
+
+        function actualizarFila(fila) {
+            const p = parseFloat(fila.querySelector('.precioUnitario')?.value) || 0;
+            const c = parseFloat(fila.querySelector('.cantidad')?.value) || 0;
+            const d = parseFloat(fila.querySelector('.descuento')?.value) || 0;
+            const i = parseFloat(fila.querySelector('.iva')?.value) || 0;
+            const subtotal = p * c;
+            const descuento = subtotal * (d / 100);
+            const iva = (subtotal - descuento) * (i / 100);
+            const totalFila = subtotal - descuento + iva;
+            fila.querySelector('.valorTotal').value = totalFila.toFixed(2);
+            fila.querySelector('button').classList.toggle('d-none', subtotal === 0);
+        }
+
+        function calcularTotales() {
+            let subtotal = 0, descuento = 0, iva = 0;
+            tabla.querySelectorAll('tr').forEach(fila => {
+                const p = parseFloat(fila.querySelector('.precioUnitario')?.value) || 0;
+                const c = parseFloat(fila.querySelector('.cantidad')?.value) || 0;
+                const d = parseFloat(fila.querySelector('.descuento')?.value) || 0;
+                const i = parseFloat(fila.querySelector('.iva')?.value) || 0;
+                const sub = p * c;
+                subtotal += sub;
+                descuento += sub * (d / 100);
+                iva += (sub - sub * (d / 100)) * (i / 100);
+            });
+            const totalFinal = subtotal - descuento + iva;
+
+            document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+            document.getElementById('iva').textContent = `$${iva.toFixed(2)}`;
+            document.getElementById('descuento').textContent = `$${descuento.toFixed(2)}`;
+            document.getElementById('totalFinal').textContent = `$${totalFinal.toFixed(2)}`;
+        }
+
+        function finalizar() {
+            const chk = document.getElementById('aceptarTerminos');
+            if (chk.checked) {
+                alert('Factura generada correctamente.');
+                location.reload();
+            } else {
+                alert('Debe aceptar los términos y condiciones.');
+            }
+        }
+    </script>
+</body>
+
+</html>

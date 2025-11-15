@@ -1,15 +1,24 @@
 {
   "dependencies": {
-    "bootstrap": "^5.3.3"
+    "@supabase/supabase-js": "^2.50.0",
+    "bootstrap": "^5.3.3",
+    "bcrypt": "^5.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "pg": "^8.16.0",
+    "postgres": "^3.4.7"
   },
-  "name": "naturistadb",
+  "name": "js",
   "version": "1.0.0",
-  "description": "FrameworkProject",
-  "main": "index.js",
-  "devDependencies": {},
+  "main": "public/server.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+  "start": "node public/server.js"
   },
+  "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "description": ""
 }

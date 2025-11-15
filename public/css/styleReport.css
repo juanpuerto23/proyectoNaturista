@@ -1,0 +1,243 @@
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background-color: #f5f5f5;
+  color: #212529;
+  overflow-x: hidden;
+}
+
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+h3, h4, h5, h6 {
+  color: #1B5E20;
+  font-weight: 600;
+}
+
+p.text-muted {
+  color: #6C757D !important;
+}
+
+.main-content {
+  margin-left: 250px; /* igual al ancho del sidebar */
+  width: calc(100% - 250px);
+  background-color: #f5f5f5;
+  overflow-y: auto;
+}
+
+/* -------- BOTONES -------- */
+.btn-success {
+  background-color: #2E7D32;
+  border: none;
+  transition: all 0.3s ease;
+  color: #fff;
+}
+
+.btn-success:hover {
+  background-color: #4CAF50;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(46, 125, 50, 0.3);
+}
+
+.btn-outline-secondary {
+  color: #2E7D32;
+  border-color: #2E7D32;
+  transition: all 0.3s ease;
+}
+
+.btn-outline-secondary:hover {
+  background-color: #2E7D32;
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(27, 94, 32, 0.3);
+}
+
+/* -------- TARJETAS DE MÉTRICAS -------- */
+.card-metric {
+  background: #FFFFFF;
+  border: 1px solid #E0E0E0;
+  border-radius: 1rem;
+  text-align: center;
+  padding: 1.5rem 1rem;
+  transition: all 0.3s ease;
+}
+
+.card-metric h6 {
+  color: #6C757D;
+}
+
+.card-metric h4 {
+  color: #2E7D32;
+  font-weight: 700;
+}
+
+.card-metric:hover {
+  background-color: #E8F5E9;
+  transform: translateY(-4px);
+  box-shadow: 0 6px 15px rgba(46, 125, 50, 0.2);
+}
+
+/* -------- SECCIONES Y CONTENEDORES -------- */
+.section-title {
+  font-weight: 600;
+  color: #1B5E20;
+}
+
+.card {
+  border-radius: 1rem;
+  border: 1px solid #E0E0E0;
+  background-color: #FFFFFF;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px rgba(27, 94, 32, 0.15);
+}
+
+/* -------- TABLAS -------- */
+.table {
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.table th {
+  color: #6C757D;
+  font-weight: 600;
+}
+
+.table-hover tbody tr:hover {
+  background-color: #E8F5E9;
+  transition: background-color 0.3s ease;
+}
+
+/* -------- INPUTS Y SELECTS -------- */
+.form-control, .form-select {
+  border-radius: 0.6rem;
+  border: 1px solid #CED4DA;
+  transition: all 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #2E7D32;
+  box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.25);
+}
+
+/* -------- AVATARES -------- */
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #E0E0E0;
+  transition: transform 0.3s ease;
+}
+
+.avatar:hover {
+  transform: scale(1.1);
+  border-color: #4CAF50;
+}
+
+/* -------- ANIMACIONES -------- */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card, .card-metric, .table {
+  animation: fadeInUp 0.4s ease;
+}
+
+/* -------- SCROLLBAR PERSONALIZADO -------- */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #A5D6A7;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #81C784;
+}
+
+/* -------- HEADER -------- */
+header, .page-header {
+  border-bottom: 2px solid #E0E0E0;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* -------- CONTENEDORES PEQUEÑOS -------- */
+.input-group .btn {
+  border-radius: 0.6rem;
+}
+
+.input-group .btn:hover {
+  background-color: #4CAF50;
+  color: white;
+}
+
+/* Sidebar */
+#sidebar {
+  width: 250px;
+  color: #2E7D32;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: #ffffff;
+  border-right: 1px solid #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+#sidebar h6 {
+  font-weight: 600;
+  color: #2E7D32;
+}
+
+#sidebar small {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+#sidebar .nav-link {
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #2E7D32;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+#sidebar .nav-link:hover {
+  background-color: #e8f5e9;
+  transform: translateX(5px);
+}
+
+#sidebar .nav-link.active {
+  background-color: #2E7D32;
+  color: #fff !important;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.4);
+}
+
+/* Navbar móvil */
+.navbar {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.navbar-brand {
+  color: #2E7D32 !important;
+  font-weight: bold;
+}

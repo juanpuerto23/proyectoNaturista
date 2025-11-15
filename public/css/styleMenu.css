@@ -1,0 +1,185 @@
+/* ============================
+   HerbalSys - Dashboard CSS
+   ============================ */
+
+/* PALETA DE COLORES (Naturista / Verde)
+   Verde primario: #2E7D32
+   Verde claro:   #4CAF50
+   Verde oscuro:  #1B5E20
+   Blanco:        #FFFFFF
+   Gris claro:    #F5F5F5
+   Gris texto:    #6C757D
+*/
+
+/* Reset */
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background-color: #f5f5f5;
+  color: #212529;
+  overflow-x: hidden;
+}
+
+/* Sidebar */
+#sidebar {
+  background: #ffffff;
+  border-right: 1px solid #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+#sidebar h6 {
+  font-weight: 600;
+  color: #2E7D32;
+}
+
+#sidebar small {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+#sidebar .nav-link {
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #2E7D32;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+#sidebar .nav-link:hover {
+  background-color: #e8f5e9;
+  transform: translateX(5px);
+}
+
+#sidebar .nav-link.active {
+  background-color: #2E7D32;
+  color: #fff !important;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.4);
+}
+
+/* Navbar móvil */
+.navbar {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.navbar-brand {
+  color: #2E7D32 !important;
+  font-weight: bold;
+}
+
+/* Botones */
+.btn-success {
+  background-color: #2E7D32;
+  border-color: #2E7D32;
+  transition: all 0.2s ease;
+}
+
+.btn-success:hover {
+  background-color: #1B5E20;
+  border-color: #1B5E20;
+  transform: scale(1.05);
+}
+
+.btn-outline-success {
+  color: #2E7D32;
+  border-color: #2E7D32;
+  transition: all 0.2s ease;
+}
+
+.btn-outline-success:hover {
+  background-color: #e8f5e9;
+  color: #1B5E20;
+  transform: scale(1.05);
+}
+
+/* Animaciones para Quick Actions */
+.btn-animate[data-animate="pulse"]:hover {
+  animation: pulse 0.8s infinite;
+}
+
+.btn-animate[data-animate="pop"]:hover {
+  animation: pop 0.3s ease forwards;
+}
+
+/* Animaciones de los botones */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.12); }
+}
+
+/* Tarjetas */
+.card-metric {
+  background: #FFFFFF;
+  border: 1px solid #E0E0E0;
+  border-radius: 1rem;
+  text-align: center;
+  padding: 1.5rem 1rem;
+  transition: all 0.3s ease;
+}
+
+.card-metric h6 {
+  color: #6C757D;
+}
+
+.card-metric h4 {
+  color: #2E7D32;
+  font-weight: 700;
+}
+
+.card-metric:hover {
+  background-color: #E8F5E9;
+  transform: translateY(-4px);
+  box-shadow: 0 6px 15px rgba(46, 125, 50, 0.2);
+}
+
+/* Tablas */
+.table thead {
+  background-color: #e8f5e9;
+  color: #2E7D32;
+  font-weight: 600;
+}
+
+.table-hover tbody tr:hover {
+  background-color: #f1f8e9;
+  transition: 0.2s ease;
+}
+
+/* Inputs & selects */
+.form-control:focus, .form-select:focus {
+  border-color: #2E7D32;
+  box-shadow: 0 0 0 0.2rem rgba(46,125,50,0.25);
+}
+
+/* Modal */
+.modal-content {
+  border-radius: 12px;
+}
+
+.modal-header {
+  border-bottom: 1px solid #e0e0e0;
+  background: #e8f5e9;
+}
+
+.modal-title {
+  color: #2E7D32;
+  font-weight: 600;
+}
+
+/* Offcanvas (móvil) */
+.offcanvas {
+  border-right: 1px solid #e0e0e0;
+}
+
+.offcanvas-body .nav-link {
+  color: #2E7D32;
+}
+
+.offcanvas-body .nav-link.active {
+  background-color: #2E7D32;
+  color: #fff;
+}

@@ -1,0 +1,440 @@
+import express from 'express';
+import sql from './db.js';
+import dotenv from 'dotenv';
+import cors from 'cors';
+import supabase from './supabaseClient.js';
+import crypto from 'crypto';
+import bcrypt from 'bcrypt';
+
+dotenv.config();
+
+const app = express();
+const port = 3000;
+
+// Helper: verifica contraseñas en texto plano, Django pbkdf2_sha256 o bcrypt ($2b$...)
+function verifyPasswordHash(storedPassword, providedPassword) {
+  if (!storedPassword) return false;
+  // bcrypt-style: $2b$... (bcrypt)
+  if (storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$') || storedPassword.startsWith('$2y$')) {
+    try {
+      return bcrypt.compareSync(providedPassword, storedPassword);
+    } catch (e) {
+      console.error('Error verificando bcrypt hash:', e);
+      return false;
+    }
+  }
+  // Django-style: pbkdf2_sha256$<iterations>$<salt>$<hash_b64>
+  if (storedPassword.startsWith('pbkdf2_sha256$')) {
+    const parts = storedPassword.split('$');
+    if (parts.length !== 4) return false;
+    const iterations = parseInt(parts[1], 10);
+    const salt = parts[2];
+    const hashB64 = parts[3];
+    try {
+      const derived = crypto.pbkdf2Sync(providedPassword, salt, iterations, 32, 'sha256');
+      const hashBuf = Buffer.from(hashB64, 'base64');
+      if (hashBuf.length !== derived.length) return false;
+      return crypto.timingSafeEqual(derived, hashBuf);
+    } catch (e) {
+      console.error('Error verificando pbkdf2 hash:', e);
+      return false;
+    }
+  }
+  // Fallback: comparación directa (legacy)
+  return storedPassword === providedPassword;
+}
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public')); // Sirve tu inventario.html
+
+// Obtener todos los productos
+app.get('/productos', async (req, res) => {
+  try {
+    // Si hay cliente de Supabase, usarlo (permitir migración incremental)
+    if (supabase) {
+      const { data, error } = await supabase.from('productos').select('*');
+      if (error) throw error;
+      return res.json(data);
+    }
+
+    // Fallback a la DB local
+    const productos = await sql`SELECT * FROM productos`;
+    res.json(productos);
+  } catch (err) {
+    console.error('Error al obtener productos:', err);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+// Rutas compatibles con el frontend antiguo (/categorias y /proveedores)
+app.get('/categorias', async (req, res) => {
+  try {
+    // intentar obtener desde Supabase si está configurado
+    if (supabase) {
+      const { data, error } = await supabase.from('categorias').select('*');
+      if (error) throw error;
+      return res.json(data);
+    }
+    // fallback: intentar desde la DB local (si existe tabla categorias)
+    const cats = await sql`SELECT * FROM categorias`;
+    res.json(cats);
+  } catch (err) {
+    console.error('Error al obtener categorias:', err);
+    res.status(500).json({ error: 'Error al obtener categorias' });
+  }
+});
+
+app.get('/proveedores', async (req, res) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase.from('proveedores').select('*');
+      if (error) throw error;
+      return res.json(data);
+    }
+    const prov = await sql`SELECT * FROM proveedores`;
+    res.json(prov);
+  } catch (err) {
+    console.error('Error al obtener proveedores:', err);
+    res.status(500).json({ error: 'Error al obtener proveedores' });
+  }
+});
+
+// Endpoint de diagnóstico: listar id_producto y nombre (o mostrar sample si columnas distintas)
+app.get('/productos/ids', async (req, res) => {
+  try {
+    if (supabase) {
+      // Intentamos seleccionar las columnas esperadas
+      let { data, error } = await supabase.from('productos').select('id_producto,nombre_producto').limit(100);
+      if (error) throw error;
+      // Si no hay id_producto en la respuesta, devolvemos un sample completo para inspección
+      if (!data || data.length === 0 || typeof data[0].id_producto === 'undefined') {
+        const { data: allData, error: errAll } = await supabase.from('productos').select('*').limit(100);
+        if (errAll) throw errAll;
+        return res.json({ columns: allData && allData[0] ? Object.keys(allData[0]) : [], sample: allData || [] });
+      }
+      return res.json({ columns: Object.keys(data[0] || {}), data });
+    }
+
+    // Fallback SQL
+    const rows = await sql`SELECT id_producto, nombre_producto FROM productos LIMIT 100`;
+    return res.json({ columns: rows && rows[0] ? Object.keys(rows[0]) : [], data: rows });
+  } catch (err) {
+    console.error('Error en /productos/ids:', err?.message ?? err);
+    res.status(500).json({ error: 'Error al listar ids', detail: err?.message ?? String(err) });
+  }
+});
+
+// --- RUTAS NAMESPACEADAS PARA SUPABASE ---
+// Obtener categorías (usa el cliente de Supabase)
+app.get('/api/supabase/categorias', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('categorias').select('*');
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Error obteniendo categorías desde Supabase:', err);
+    res.status(500).json({ message: 'Error al obtener categorías' });
+  }
+});
+
+// Ejemplo: obtener clientes
+app.get('/api/supabase/clientes', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('clientes').select('*').limit(100);
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Error obteniendo clientes desde Supabase:', err);
+    res.status(500).json({ message: 'Error al obtener clientes' });
+  }
+});
+
+// POST /api/supabase/query -> body: { table: string, select?: string, filter?: { column, op, value } }
+// Nota: endpoint sencillo para casos de uso interno; validar/escapar inputs antes de usar en producción.
+app.post('/api/supabase/query', async (req, res) => {
+  const { table, select = '*', filter } = req.body || {};
+  if (!table) return res.status(400).json({ message: 'table is required' });
+
+  try {
+    let builder = supabase.from(table).select(select);
+    if (filter && filter.column && filter.op && typeof filter.value !== 'undefined') {
+      // Ejemplo: { column: 'id_categoria', op: 'eq', value: 2 }
+      builder = builder.filter(filter.column, filter.op, filter.value);
+    }
+    const { data, error } = await builder;
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Error en /api/supabase/query:', err);
+    res.status(500).json({ message: 'Error en query' });
+  }
+});
+
+
+// Insertar producto nuevo
+app.post('/productos', async (req, res) => {
+  const { nombre_producto, descripcion_producto, id_categoria, id_proveedor, stock_actual, precio_venta, fecha_vencimiento } = req.body;
+  try {
+    await sql`
+      INSERT INTO productos (nombre_producto, descripcion_producto, id_categoria, id_proveedor, stock_actual, precio_venta, fecha_vencimiento)
+      VALUES (${nombre_producto}, ${descripcion_producto}, ${id_categoria}, ${id_proveedor}, ${stock_actual}, ${precio_venta}, ${fecha_vencimiento})
+    `;
+    res.json({ success: true, message: 'Producto agregado correctamente' });
+  } catch (err) {
+    console.error('Error al agregar producto:', err);
+    res.status(500).json({ error: 'Error de conexión con el servidor' });
+  }
+});
+
+// Crear categoría
+app.post('/categorias', async (req, res) => {
+  const { nombre_categoria, descripcion_categoria, activo = true } = req.body || {};
+  if (!nombre_categoria) return res.status(400).json({ error: 'nombre_categoria requerido' });
+  try {
+    if (supabase) {
+      const { data, error } = await supabase.from('categorias').insert([{ nombre_categoria, descripcion_categoria, activo }]).select();
+      if (error) throw error;
+      return res.json({ success: true, row: data && data[0] });
+    }
+
+    const result = await sql`
+      INSERT INTO categorias (nombre_categoria, descripcion_categoria, activo)
+      VALUES (${nombre_categoria}, ${descripcion_categoria}, ${activo})
+      RETURNING *
+    `;
+    const row = Array.isArray(result) && result.length ? result[0] : null;
+    return res.json({ success: true, row });
+  } catch (err) {
+    console.error('Error creando categoría:', err?.message ?? err);
+    // Postgres unique violation (duplicate key)
+    if (err && (err.code === '23505' || String(err.message || '').toLowerCase().includes('duplicate key'))) {
+      return res.status(409).json({ error: 'Clave duplicada: posible secuencia desincronizada o registro existente', detail: err?.message ?? String(err) });
+    }
+    res.status(500).json({ error: 'Error al crear categoría', detail: err?.message ?? String(err) });
+  }
+});
+
+// Crear proveedor
+app.post('/proveedores', async (req, res) => {
+  const { nombre_proveedor, nit_proveedor, telefono_proveedor, email_proveedor, direccion_proveedor, contacto_proveedor, activo = true } = req.body || {};
+  if (!nombre_proveedor) return res.status(400).json({ error: 'nombre_proveedor requerido' });
+  try {
+    if (supabase) {
+      const { data, error } = await supabase.from('proveedores').insert([{ nombre_proveedor, nit_proveedor, telefono_proveedor, email_proveedor, direccion_proveedor, contacto_proveedor, activo }]).select();
+      if (error) throw error;
+      return res.json({ success: true, row: data && data[0] });
+    }
+
+    const result = await sql`
+      INSERT INTO proveedores (nombre_proveedor, nit_proveedor, telefono_proveedor, email_proveedor, direccion_proveedor, contacto_proveedor, activo)
+      VALUES (${nombre_proveedor}, ${nit_proveedor}, ${telefono_proveedor}, ${email_proveedor}, ${direccion_proveedor}, ${contacto_proveedor}, ${activo})
+      RETURNING *
+    `;
+    const row = Array.isArray(result) && result.length ? result[0] : null;
+    return res.json({ success: true, row });
+  } catch (err) {
+    console.error('Error creando proveedor:', err?.message ?? err);
+    if (err && (err.code === '23505' || String(err.message || '').toLowerCase().includes('duplicate key'))) {
+      return res.status(409).json({ error: 'Clave duplicada: posible secuencia desincronizada o registro existente', detail: err?.message ?? String(err) });
+    }
+    res.status(500).json({ error: 'Error al crear proveedor', detail: err?.message ?? String(err) });
+  }
+});
+
+// LOGIN: verificar credenciales contra accounts_usuario en Supabase
+app.post('/login', async (req, res) => {
+  const { username, password, role } = req.body || {};
+
+  if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+
+  try {
+    // Si hay Supabase configurado, usarlo
+    if (supabase) {
+      const { data: users, error } = await supabase
+        .from('usuarios')
+        .select('id_usuario, username, password_hash, rol, email, activo')
+        .eq('username', username)
+        .single();
+
+      if (error || !users) {
+        console.log('Usuario no encontrado en Supabase:', username);
+        return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+      }
+
+      if (!users.activo) return res.status(403).json({ error: 'Usuario inactivo' });
+      if (!verifyPasswordHash(users.password_hash, password)) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+
+      // Si el cliente solicitó un rol específico, verificar que coincida
+      if (role && String(role).toLowerCase() !== String(users.rol).toLowerCase()) {
+        console.log(`Acceso denegado para ${username}: rol solicitado=${role} rol_real=${users.rol}`);
+        return res.status(403).json({ error: 'Acceso denegado: rol no coincide' });
+      }
+
+      console.log(`Login exitoso (supabase) para ${username} con rol ${users.rol}`);
+      return res.json({ success: true, user: { id_usuario: users.id_usuario, user_login: users.username, email: users.email || null, rol: users.rol } });
+    }
+
+    // Si no hay Supabase, intentar con la DB local
+    console.log('Supabase no configurado, usando DB local para login');
+    const rows = await sql`SELECT id_usuario, username, password_hash, rol, email, activo FROM usuarios WHERE username = ${username}`;
+    const user = Array.isArray(rows) && rows.length ? rows[0] : null;
+    if (!user) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+    if (!user.activo) return res.status(403).json({ error: 'Usuario inactivo' });
+    if (!verifyPasswordHash(user.password_hash, password)) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+
+    if (role && String(role).toLowerCase() !== String(user.rol).toLowerCase()) {
+      console.log(`Acceso denegado (db) para ${username}: rol solicitado=${role} rol_real=${user.rol}`);
+      return res.status(403).json({ error: 'Acceso denegado: rol no coincide' });
+    }
+
+    console.log(`Login exitoso (db) para ${username} con rol ${user.rol}`);
+    return res.json({ success: true, user: { id_usuario: user.id_usuario, user_login: user.username, email: user.email || null, rol: user.rol } });
+  } catch (err) {
+    console.error('Error en login:', err?.message ?? err);
+    return res.status(500).json({ error: 'Error al procesar login', detail: err?.message ?? String(err) });
+  }
+});
+
+// Ruta para DELETE sin id -> devolver 400
+app.delete('/productos', (req, res) => {
+  res.status(400).json({ error: 'Debe especificar id en la ruta: DELETE /productos/:id' });
+});
+
+// Eliminar un producto por id o id_producto
+app.delete('/productos/:id', async (req, res) => {
+  const idParam = req.params.id;
+  if (!idParam) return res.status(400).json({ error: 'id requerido en la ruta' });
+
+  try {
+    // Determinar si es numérico
+    const numericId = /^\d+$/.test(idParam) ? parseInt(idParam, 10) : null;
+
+    if (supabase) {
+      // Intentar eliminar usando Supabase por la columna id_producto
+      const filterVal = numericId !== null ? numericId : idParam;
+      const { data, error } = await supabase.from('productos').delete().match({ id_producto: filterVal });
+      if (error) throw error;
+      console.log('DELETE via Supabase for id_producto=', filterVal, 'deleted=', data?.length ?? 0);
+      return res.json({ success: true, deleted: data?.length ?? 0 });
+    }
+
+    // Fallback: eliminar en la DB local usando la columna id_producto (evitar referencia a 'id' inexistente)
+    let deletedRows = 0;
+    if (numericId !== null) {
+      const result = await sql`DELETE FROM productos WHERE id_producto = ${numericId} RETURNING id_producto`;
+      deletedRows = Array.isArray(result) ? result.length : 0;
+    } else {
+      const result = await sql`DELETE FROM productos WHERE id_producto = ${idParam} RETURNING id_producto`;
+      deletedRows = Array.isArray(result) ? result.length : 0;
+    }
+    console.log('DELETE SQL for id_producto=', idParam, 'deletedRows=', deletedRows);
+    res.json({ success: true, deleted: deletedRows });
+  } catch (err) {
+    console.error('Error al eliminar producto:', err?.message ?? err, err?.stack ?? '');
+    res.status(500).json({ error: 'Error al eliminar producto', detail: err?.message ?? String(err) });
+  }
+});
+
+// Actualizar un producto (p. ej. stock_actual)
+app.patch('/productos/:id', async (req, res) => {
+  const idParam = req.params.id;
+  if (!idParam) return res.status(400).json({ error: 'id requerido en la ruta' });
+
+  // Campos permitidos para actualizar. Si vienen undefined, no se modificarán.
+  const {
+    nombre_producto,
+    descripcion_producto,
+    id_categoria,
+    id_proveedor,
+    stock_actual,
+    precio_venta,
+    fecha_vencimiento,
+  } = req.body || {};
+
+  // require at least one field to update
+  if (
+    typeof nombre_producto === 'undefined' &&
+    typeof descripcion_producto === 'undefined' &&
+    typeof id_categoria === 'undefined' &&
+    typeof id_proveedor === 'undefined' &&
+    typeof stock_actual === 'undefined' &&
+    typeof precio_venta === 'undefined' &&
+    typeof fecha_vencimiento === 'undefined'
+  ) {
+    return res.status(400).json({ error: 'Al menos un campo para actualizar es requerido en body' });
+  }
+
+  try {
+    const numericId = /^\d+$/.test(idParam) ? parseInt(idParam, 10) : idParam;
+
+    if (supabase) {
+      const updateObj = {};
+      if (typeof nombre_producto !== 'undefined') updateObj.nombre_producto = nombre_producto;
+      if (typeof descripcion_producto !== 'undefined') updateObj.descripcion_producto = descripcion_producto;
+      if (typeof id_categoria !== 'undefined') updateObj.id_categoria = id_categoria;
+      if (typeof id_proveedor !== 'undefined') updateObj.id_proveedor = id_proveedor;
+      if (typeof stock_actual !== 'undefined') updateObj.stock_actual = stock_actual;
+      if (typeof precio_venta !== 'undefined') updateObj.precio_venta = precio_venta;
+      if (typeof fecha_vencimiento !== 'undefined') updateObj.fecha_vencimiento = fecha_vencimiento;
+
+      const filterVal = numericId;
+      const { data, error } = await supabase.from('productos').update(updateObj).match({ id_producto: filterVal }).select();
+      if (error) throw error;
+      return res.json({ success: true, updated: data?.length ?? 0, row: data && data[0] });
+    }
+
+    // SQL fallback: usar COALESCE para mantener valores actuales cuando body no provee el campo
+    const result = await sql`
+      UPDATE productos
+      SET
+        nombre_producto = COALESCE(${nombre_producto}, nombre_producto),
+        descripcion_producto = COALESCE(${descripcion_producto}, descripcion_producto),
+        id_categoria = COALESCE(${id_categoria}, id_categoria),
+        id_proveedor = COALESCE(${id_proveedor}, id_proveedor),
+        stock_actual = COALESCE(${stock_actual}, stock_actual),
+        precio_venta = COALESCE(${precio_venta}, precio_venta),
+        fecha_vencimiento = COALESCE(${fecha_vencimiento}, fecha_vencimiento)
+      WHERE id_producto = ${numericId}
+      RETURNING *
+    `;
+
+    const updated = Array.isArray(result) && result.length ? result[0] : null;
+    return res.json({ success: true, updated: updated ? 1 : 0, row: updated });
+  } catch (err) {
+    console.error('Error actualizando producto:', err?.message ?? err);
+    res.status(500).json({ error: 'Error al actualizar producto', detail: err?.message ?? String(err) });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`Servidor corriendo en http://localhost:${port}`);
+});
+
+// RUTA ADMIN: sincronizar secuencias de tablas (solo para desarrollo)
+// Si se define ADMIN_SECRET en .env, la petición debe incluir header 'x-admin-secret'
+app.post('/admin/sync-sequences', async (req, res) => {
+  try {
+    const adminSecret = process.env.ADMIN_SECRET;
+    if (adminSecret) {
+      const provided = req.headers['x-admin-secret'] || req.query.admin_secret;
+      if (!provided || String(provided) !== String(adminSecret)) {
+        return res.status(403).json({ error: 'Forbidden: admin secret required' });
+      }
+    }
+
+    // sincronizar categorias
+    const cat = await sql`
+      SELECT setval(pg_get_serial_sequence('categorias','id_categoria'), COALESCE((SELECT MAX(id_categoria) FROM categorias), 0) + 1, false) AS new_val
+    `;
+    // sincronizar proveedores
+    const prov = await sql`
+      SELECT setval(pg_get_serial_sequence('proveedores','id_proveedor'), COALESCE((SELECT MAX(id_proveedor) FROM proveedores), 0) + 1, false) AS new_val
+    `;
+
+    return res.json({ success: true, categorias_next: cat?.[0]?.new_val ?? null, proveedores_next: prov?.[0]?.new_val ?? null });
+  } catch (err) {
+    console.error('Error sincronizando secuencias:', err?.message ?? err);
+    return res.status(500).json({ error: 'Error sincronizando secuencias', detail: err?.message ?? String(err) });
+  }
+});

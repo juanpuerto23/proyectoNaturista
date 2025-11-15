@@ -1,0 +1,87 @@
+/* ============================
+   HerbalSys - Inventario CSS
+   ============================ */
+
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background-color: #f5f5f5;
+  color: #212529;
+}
+
+/* Sidebar */
+#sidebar {
+  background: #ffffff;
+  border-right: 1px solid #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+#sidebar h6 {
+  font-weight: 600;
+  color: #2E7D32;
+}
+
+#sidebar small {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+#sidebar .nav-link {
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #2E7D32;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+#sidebar .nav-link:hover {
+  background-color: #e8f5e9;
+  transform: translateX(5px);
+}
+
+#sidebar .nav-link.active {
+  background-color: #2E7D32;
+  color: #fff !important;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.4);
+}
+
+/* Botones */
+.btn-success {
+  background-color: #2E7D32;
+  border-color: #2E7D32;
+  transition: all 0.2s ease;
+}
+.btn-success:hover {
+  background-color: #1B5E20;
+  border-color: #1B5E20;
+  transform: scale(1.05);
+}
+.btn-outline-success {
+  color: #2E7D32;
+  border-color: #2E7D32;
+}
+.btn-outline-success:hover {
+  background-color: #e8f5e9;
+  color: #1B5E20;
+}
+
+/* Cards y tablas */
+.card {
+  border-radius: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+}
+.table thead {
+  background-color: #e8f5e9;
+  color: #1B5E20;
+  font-weight: 600;
+}
+
+.nav-link.disabled {
+  pointer-events: none;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
