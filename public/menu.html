@@ -55,7 +55,6 @@
                 href="pages/facturasElectronicas.html">Facturas Electrónicas</a></li>
             <li class="nav-item mb-1"><a id="btnLibroVentas" class="nav-link" href="pages/reportes.html">Reportes</a>
             </li>    
-            <li class="nav-item mt-3"><a class="nav-link text-muted small" href="#">Ajustes</a></li>
           </ul>
 
           <div class="mt-4 small text-muted">
@@ -101,25 +100,25 @@
             <div class="row gy-3">
               <div class="col-md-3">
                 <div class="card-metric">
-                  <h6 class="text-muted">Inventario Total</h6>
+                  <h6 class="text-muted">Inventario total</h6>
                   <h4 id="inventoryValue" class="mt-2">$0</h4>
                 </div>
               </div>
               <div class="col-md-3">
                 <div class="card-metric">
-                  <h6 class="text-muted">Alertas de Stock</h6>
+                  <h6 class="text-muted">Alertas de stock</h6>
                   <h4 id="lowStockCount" class="mt-2">0</h4>
                 </div>
               </div>
               <div class="col-md-3">
                 <div class="card-metric">
-                  <h6 class="text-muted">Ventas del Día</h6>
+                  <h6 class="text-muted">Ventas del día</h6>
                   <h4 id="todaysSales" class="fw-bold">$0</h4>
                 </div>
               </div>
               <div class="col-md-3">
                 <div class="card-metric">
-                  <h6 class="text-muted">Clientes Activos</h6>
+                  <h6 class="text-muted">Clientes activos</h6>
                   <h4 id="activeClients" class="fw-bold">0</h4>
                 </div>
               </div>
@@ -137,11 +136,11 @@
                     <div class="me-auto"><strong>Acción Rápida</strong></div>
                     <!-- botones animables: tienen data-animate y clase .btn-animate -->
                     <button class="btn btn-outline-success btn-animate" data-action="addProduct" data-animate="pop"
-                      data-bs-toggle="modal" data-bs-target="#productModal">Añadir Producto</button>
+                      data-bs-toggle="modal" data-bs-target="#productModal">Añadir producto</button>
                     <button class="btn btn-outline-secondary btn-animate" data-action="adjustStock"
-                      data-animate="pop">Ajustar Stock</button>
+                      data-animate="pop">Ajustar stock</button>
                     <button class="btn btn-success btn-outline btn-animate" data-action="createPO"
-                      data-animate="pop">Crear Orden Pedido</button>
+                      data-animate="pop">Crear orden de pedido</button>
                   </div>
                 </div>
 
@@ -150,18 +149,18 @@
                   <div class="card-body">
                     <div class="row g-2 align-items-center">
                       <div class="col-md-3">
-                        <input id="productSearch" class="form-control" type="text" placeholder="Buscar Productos..."
+                        <input id="productSearch" class="form-control" type="text" placeholder="Buscar Producto"
                           aria-label="Buscar productos">
                       </div>
                       <div class="col-md-3">
                         <select id="filterCategory" class="form-select">
-                          <option value="">Todas Categorias</option>
+                          <option value="">Filtrar: Categorias</option>
                           <!-- categories loaded dynamically -->
                         </select>
                       </div>
                       <div class="col-md-3">
                         <select id="filterSupplier" class="form-select">
-                          <option value="">Todos Proveedores</option>
+                          <option value="">Filtrar: Proveedores</option>
                           <!-- suppliers loaded dynamically -->
                         </select>
                       </div>
@@ -202,7 +201,7 @@
 
               <!-- COLUMNA DERECHA: alertas y clientes -->
               <div class="col-xl-4">
-                <div class="card shadow-sm mb-3">
+                <div class="card shadow-sm mb-3 card-report">
                   <div class="card-body">
                     <h6 class="card-title">Alerta Inventario</h6>
                     <ul id="alertsList" class="list-group list-group-flush">
@@ -211,7 +210,7 @@
                     </ul>
                   </div>
                 </div>
-                <div class="card shadow-sm mb-3">
+                <div class="card shadow-sm mb-3 card-report">
                   <div class="card-body">
                     <h6 class="card-title">Clientes</h6>
                     <div class="table-responsive">

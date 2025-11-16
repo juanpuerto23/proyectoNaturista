@@ -82,9 +82,8 @@ main {
 }
 
 /* ====== TÍTULO Y BOTÓN ====== */
-h2.text-success {
-  color: var(--verde-primario) !important;
-  font-weight: 700;
+h3 {
+  color: #1B5E20;
 }
 
 .btn-success {
@@ -199,6 +198,18 @@ h2.text-success {
   border-color: var(--verde-primario);
   box-shadow: 0 0 0 0.2rem rgba(46, 125, 50, 0.25);
 }
+
+/* ====== CARDS Y TABLAS (mejorar parecido con Inventario) ====== */
+.card {
+  border-radius: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+}
+.card-body.p-0 { padding: 0; }
+
 
 /* ====== RESPONSIVE ====== */
 @media (max-width: 992px) {

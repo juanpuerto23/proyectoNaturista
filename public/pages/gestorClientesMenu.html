@@ -44,8 +44,8 @@
                     <li class="nav-item mb-1"><a class="nav-link active" href="../pages/gestorClientesMenu.html">Gestor
                             de
                             Clientes</a></li>
-                    <li class="nav-item mb-1"><a class="nav-link" href="../pages/facturasElectronicas.html">Facturas
-                            Electrónicas</a></li>
+                    <li class="nav-item mb-1"><a id="btnFacturasElectronicas" class="nav-link"
+                href="facturasElectronicas.html">Facturas Electrónicas</a></li>
                     <li class="nav-item mb-1"><a class="nav-link" href="../pages/reportes.html">Reportes</a>
                 </ul>
             </aside>
@@ -67,8 +67,7 @@
                         <li class="nav-item mb-1"><a class="nav-link active"
                                 href="../pages/gestorClientesMenu.html">Gestor de
                                 Clientes</a></li>
-                        <li class="nav-item mb-1"><a class="nav-link" href="../pages/facturasElectronicas.html">Facturas
-                                Electrónicas</a></li>
+                        
                     </ul>
                 </div>
             </div>
@@ -77,7 +76,7 @@
             <main class="col p-4">
                 <!-- Título y Botón -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2 class="fw-semibold text-success">Gestión de Clientes</h2>
+                    <h3 class="fw-bold">Gestión de Clientes</h3>
                     <button class="btn btn-success d-flex align-items-center" data-bs-toggle="modal"
                         data-bs-target="#modalAgregarCliente">
                         <i class="bi bi-person-plus me-1"></i> + Agregar Cliente
@@ -85,23 +84,30 @@
                 </div>
 
                 <!-- Tabla de Clientes -->
-                <div class="table-responsive mb-4">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th><input type="checkbox" id="chkSeleccionarTodos"></th>
-                                <th>Cliente</th>
-                                <th>Teléfono</th>
-                                <th>Última compra</th>
-                                <th>Total comprado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tablaClientes">
-                            <!-- Filas generadas dinámicamente -->
-                        </tbody>
-                    </table>
-                </div>
+                    <!-- Tabla de Clientes (estilo Inventario) -->
+                    <section class="mb-4">
+                        <div class="card shadow-sm">
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table id="tabla-clientes" class="table table-hover mb-0 align-middle">
+                                        <thead class="table-light">
+                                                    <tr>
+                                                        <th style="width:36px"><input type="checkbox" id="chkSeleccionarTodos"></th>
+                                                        <th>Cliente</th>
+                                                        <th>Teléfono</th>
+                                                        <th>Email</th>
+                                                        <th>Fecha Nacimiento</th>
+                                                        <th class="text-end">Acciones</th>
+                                                    </tr>
+                                        </thead>
+                                        <tbody id="tablaClientes">
+                                            <!-- Filas generadas dinámicamente -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
 
                 <!-- Panel de Detalles del Cliente -->
                 <section id="panelDetallesCliente" class="border rounded p-3 bg-white shadow-sm">
@@ -156,10 +162,6 @@
                             <label class="form-label">Fecha de Nacimiento</label>
                             <input type="date" name="fecha_nacimiento" class="form-control">
                         </div>
-                        <div class="col-md-3 form-check">
-                            <input class="form-check-input" type="checkbox" name="activo" checked>
-                            <label class="form-check-label">Activo</label>
-                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="submit" class="btn btn-success">Guardar</button>
@@ -171,6 +173,165 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const tbody = document.getElementById('tablaClientes');
+                const form = document.getElementById('formCliente');
+                const field = (name) => form ? form.querySelector(`[name="${name}"]`) : null;
+                const modalEl = document.getElementById('modalAgregarCliente');
+                const modalInstance = () => bootstrap.Modal.getOrCreateInstance(modalEl);
+
+                async function fetchJson(url, options) {
+                    const res = await fetch(url, options);
+                    const ct = res.headers.get('content-type') || '';
+                    let body = null;
+                    try { body = ct.includes('application/json') ? await res.json() : await res.text(); } catch(e) { body = null; }
+                    if (!res.ok) throw { status: res.status, body };
+                    return body;
+                }
+
+                async function cargarClientes() {
+                    try {
+                        const data = await fetchJson('/clientes');
+                        renderClientes(Array.isArray(data) ? data : []);
+                    } catch (err) {
+                        console.error('Error cargando clientes', err);
+                        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No se pudieron cargar clientes</td></tr>';
+                    }
+                }
+
+                function formatDate(d) {
+                    if (!d) return '';
+                    try {
+                        const dt = new Date(d);
+                        if (isNaN(dt)) return d;
+                        return dt.toISOString().slice(0,10);
+                    } catch(e) { return d; }
+                }
+
+                function renderClientes(list) {
+                    if (!tbody) return;
+                    tbody.innerHTML = '';
+                    if (!Array.isArray(list) || list.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin clientes</td></tr>';
+                        return;
+                    }
+                    list.forEach(c => {
+                        const id = c.id_cliente ?? c.id ?? '';
+                        const nombre = c.nombre_completo ?? '';
+                        const telefono = c.telefono ?? '';
+                        const email = c.email ?? '';
+                        const fn = formatDate(c.fecha_nacimiento ?? '');
+
+                        tbody.insertAdjacentHTML('beforeend', `
+                            <tr>
+                                <td><input type="checkbox" data-id="${id}"></td>
+                                <td>${escapeHtml(nombre)}</td>
+                                <td>${escapeHtml(telefono)}</td>
+                                <td>${escapeHtml(email)}</td>
+                                <td>${escapeHtml(fn)}</td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm" data-edit-id="${id}" title="Editar" aria-label="Editar" style="min-width:44px; padding:6px 8px; background:#e9f7ec; color:#0f5132; border:1px solid #c7ecc7;">
+                                        <span style="font-size:14px; line-height:1">✏️</span>
+                                    </button>
+                                    <button class="btn btn-sm" data-id="${id}" title="Eliminar" aria-label="Eliminar" style="min-width:44px; padding:6px 8px; margin-left:6px; background:#ffecec; color:#842029; border:1px solid #f5c2c7;">
+                                        <span style="font-size:14px; line-height:1">🗑️</span>
+                                    </button>
+                                </td>
+                            </tr>
+                        `);
+                    });
+                }
+
+                function escapeHtml(s){ if (s===null||s===undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+                // delegated actions: edit / delete
+                if (tbody) {
+                    tbody.addEventListener('click', async (ev) => {
+                        const btn = ev.target.closest('button[data-id], button[data-edit-id]');
+                        if (!btn) return;
+                        const editId = btn.getAttribute('data-edit-id');
+                        if (editId) {
+                            // fetch single cliente (or reuse cached list by calling GET /clientes and finding)
+                            try {
+                                const all = await fetchJson('/clientes');
+                                const cliente = (Array.isArray(all) ? all.find(x => String(x.id_cliente ?? x.id ?? '') === String(editId)) : null) || null;
+                                if (!cliente) return alert('Cliente no encontrado');
+                                // fill form (robusto: buscar campos por name)
+                                const fNombre = field('nombre_completo'); if (fNombre) fNombre.value = cliente.nombre_completo ?? '';
+                                const fTipo = field('tipo_id'); if (fTipo) fTipo.value = cliente.tipo_identificacion ?? '';
+                                const fNum = field('numero_id'); if (fNum) fNum.value = cliente.numero_identificacion ?? '';
+                                const fTel = field('telefono'); if (fTel) fTel.value = cliente.telefono ?? '';
+                                const fEmail = field('email'); if (fEmail) fEmail.value = cliente.email ?? '';
+                                const fDir = field('direccion'); if (fDir) fDir.value = cliente.direccion ?? '';
+                                const fFn = field('fecha_nacimiento'); if (fFn) fFn.value = formatDate(cliente.fecha_nacimiento ?? '');
+                                const fActivo = field('activo'); if (fActivo) fActivo.checked = !!cliente.activo;
+
+                                // mark edit mode
+                                try { modalEl.dataset.editId = String(editId); } catch(e){}
+                                modalEl.querySelector('.modal-title') && (modalEl.querySelector('.modal-title').textContent = 'Editar Cliente');
+                                // show modal
+                                modalInstance().show();
+                            } catch (err) { console.error('Error al cargar cliente para editar', err); alert('Error al preparar edición (ver consola)'); }
+                            return;
+                        }
+
+                        // delete
+                        const id = btn.getAttribute('data-id');
+                        if (!id) return;
+                        if (!confirm(`¿Eliminar cliente con ID ${id}?`)) return;
+                        try {
+                            await fetchJson(`/clientes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                            await cargarClientes();
+                        } catch (err) { console.error('Error borrando cliente', err); alert('Error al borrar cliente (ver consola)'); }
+                    });
+                }
+
+                // form submit -> create or update
+                form.addEventListener('submit', async (ev) => {
+                    ev.preventDefault();
+                    const getVal = (n) => (field(n) ? (field(n).value ?? '').trim() : '');
+                    const payload = {
+                        nombre_completo: getVal('nombre_completo'),
+                        tipo_identificacion: (field('tipo_id') ? field('tipo_id').value : null) || null,
+                        numero_identificacion: getVal('numero_id') || null,
+                        telefono: getVal('telefono') || null,
+                        email: getVal('email') || null,
+                        direccion: getVal('direccion') || null,
+                        fecha_nacimiento: (field('fecha_nacimiento') ? field('fecha_nacimiento').value : null) || null,
+                        activo: !!(field('activo') ? field('activo').checked : false)
+                    };
+
+                    const editId = modalEl.dataset?.editId ?? null;
+                    try {
+                        if (editId) {
+                            // PATCH
+                            await fetchJson(`/clientes/${encodeURIComponent(editId)}`, {
+                                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                            });
+                            modalInstance().hide();
+                            try { delete modalEl.dataset.editId; } catch(e){}
+                        } else {
+                            // POST
+                            await fetchJson('/clientes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                            modalInstance().hide();
+                            form.reset();
+                        }
+                        await cargarClientes();
+                    } catch (err) { console.error('Error guardando cliente', err); alert('Error al guardar cliente (ver consola)'); }
+                });
+
+                // limpiar modal al ocultar
+                modalEl.addEventListener('hidden.bs.modal', () => {
+                    try { delete modalEl.dataset.editId; } catch(e){}
+                    form.reset();
+                    try { modalEl.querySelector('.modal-title').textContent = 'Nuevo Cliente'; } catch(e){}
+                });
+
+                // inicial
+                cargarClientes();
+            });
+        </script>
 </body>
 
 </html>

@@ -8,6 +8,10 @@ body {
   color: #212529;
 }
 
+h3 {
+  color: #1B5E20;
+}
+
 /* Sidebar */
 #sidebar {
   background: #ffffff;

@@ -336,6 +336,194 @@ app.delete('/productos/:id', async (req, res) => {
   }
 });
 
+// -----------------------------
+// RUTAS CRUD PARA CLIENTES
+// -----------------------------
+// Listar clientes
+app.get('/clientes', async (req, res) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase.from('clientes').select('*').order('id_cliente', { ascending: true });
+      if (error) throw error;
+      return res.json(data);
+    }
+
+    const rows = await sql`SELECT * FROM clientes ORDER BY id_cliente`;
+    res.json(rows);
+  } catch (err) {
+    console.error('Error al obtener clientes:', err?.message ?? err);
+    res.status(500).json({ error: 'Error al obtener clientes', detail: err?.message ?? String(err) });
+  }
+});
+
+// Obtener un cliente por id
+app.get('/clientes/:id', async (req, res) => {
+  const idParam = req.params.id;
+  if (!idParam) return res.status(400).json({ error: 'id requerido en la ruta' });
+  try {
+    const numericId = /^\d+$/.test(idParam) ? parseInt(idParam, 10) : idParam;
+    if (supabase) {
+      const { data, error } = await supabase.from('clientes').select('*').eq('id_cliente', numericId).single();
+      if (error) {
+        // Supabase devuelve error cuando no existe
+        return res.status(404).json({ error: 'Cliente no encontrado' });
+      }
+      return res.json(data);
+    }
+    const rows = await sql`SELECT * FROM clientes WHERE id_cliente = ${numericId}`;
+    const cliente = Array.isArray(rows) && rows.length ? rows[0] : null;
+    if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
+    return res.json(cliente);
+  } catch (err) {
+    console.error('Error al obtener cliente:', err?.message ?? err);
+    res.status(500).json({ error: 'Error al obtener cliente', detail: err?.message ?? String(err) });
+  }
+});
+
+// Crear cliente
+app.post('/clientes', async (req, res) => {
+  const {
+    nombre_completo,
+    tipo_identificacion = null,
+    numero_identificacion = null,
+    telefono = null,
+    email = null,
+    direccion = null,
+    fecha_nacimiento = null,
+    activo = true,
+  } = req.body || {};
+
+  if (!nombre_completo) return res.status(400).json({ error: 'nombre_completo requerido' });
+
+  try {
+    if (supabase) {
+      const { data, error } = await supabase.from('clientes').insert([{ nombre_completo, tipo_identificacion, numero_identificacion, telefono, email, direccion, fecha_nacimiento, activo }]).select();
+      if (error) throw error;
+      return res.json({ success: true, row: data && data[0] });
+    }
+
+    const result = await sql`
+      INSERT INTO clientes (nombre_completo, tipo_identificacion, numero_identificacion, telefono, email, direccion, fecha_nacimiento, activo)
+      VALUES (${nombre_completo}, ${tipo_identificacion}, ${numero_identificacion}, ${telefono}, ${email}, ${direccion}, ${fecha_nacimiento}, ${activo})
+      RETURNING *
+    `;
+    const row = Array.isArray(result) && result.length ? result[0] : null;
+    return res.json({ success: true, row });
+  } catch (err) {
+    console.error('Error creando cliente:', err?.message ?? err);
+    // Detectar violación de constraint (duplicate key)
+    const isDuplicate = err && (err.code === '23505' || String(err.message || '').toLowerCase().includes('duplicate key') || String(err?.detail || '').toLowerCase().includes('already exists'));
+    if (isDuplicate) {
+      try {
+        // Si tenemos numero_identificacion, intentar devolver el registro existente para que el frontend pueda mostrarlo
+        if (numero_identificacion) {
+          if (supabase) {
+            const { data: existing, error: fetchErr } = await supabase.from('clientes').select('*').eq('numero_identificacion', numero_identificacion).limit(1).single();
+            if (!fetchErr && existing) return res.status(409).json({ error: 'duplicate', field: 'numero_identificacion', existing });
+          } else {
+            const rows = await sql`SELECT * FROM clientes WHERE numero_identificacion = ${numero_identificacion} LIMIT 1`;
+            if (Array.isArray(rows) && rows.length) return res.status(409).json({ error: 'duplicate', field: 'numero_identificacion', existing: rows[0] });
+          }
+        }
+      } catch (fetchExistingErr) {
+        console.warn('No se pudo obtener registro existente tras duplicate key:', fetchExistingErr?.message ?? fetchExistingErr);
+      }
+      return res.status(409).json({ error: 'Clave duplicada: posible registro existente', detail: err?.message ?? String(err) });
+    }
+    res.status(500).json({ error: 'Error al crear cliente', detail: err?.message ?? String(err) });
+  }
+});
+
+// Actualizar cliente (parcial)
+app.patch('/clientes/:id', async (req, res) => {
+  const idParam = req.params.id;
+  if (!idParam) return res.status(400).json({ error: 'id requerido en la ruta' });
+
+  const {
+    nombre_completo,
+    tipo_identificacion,
+    numero_identificacion,
+    telefono,
+    email,
+    direccion,
+    fecha_nacimiento,
+    activo,
+  } = req.body || {};
+
+  if (
+    typeof nombre_completo === 'undefined' &&
+    typeof tipo_identificacion === 'undefined' &&
+    typeof numero_identificacion === 'undefined' &&
+    typeof telefono === 'undefined' &&
+    typeof email === 'undefined' &&
+    typeof direccion === 'undefined' &&
+    typeof fecha_nacimiento === 'undefined' &&
+    typeof activo === 'undefined'
+  ) {
+    return res.status(400).json({ error: 'Al menos un campo para actualizar es requerido en body' });
+  }
+
+  try {
+    const numericId = /^\d+$/.test(idParam) ? parseInt(idParam, 10) : idParam;
+    if (supabase) {
+      const updateObj = {};
+      if (typeof nombre_completo !== 'undefined') updateObj.nombre_completo = nombre_completo;
+      if (typeof tipo_identificacion !== 'undefined') updateObj.tipo_identificacion = tipo_identificacion;
+      if (typeof numero_identificacion !== 'undefined') updateObj.numero_identificacion = numero_identificacion;
+      if (typeof telefono !== 'undefined') updateObj.telefono = telefono;
+      if (typeof email !== 'undefined') updateObj.email = email;
+      if (typeof direccion !== 'undefined') updateObj.direccion = direccion;
+      if (typeof fecha_nacimiento !== 'undefined') updateObj.fecha_nacimiento = fecha_nacimiento;
+      if (typeof activo !== 'undefined') updateObj.activo = activo;
+
+      const { data, error } = await supabase.from('clientes').update(updateObj).match({ id_cliente: numericId }).select();
+      if (error) throw error;
+      return res.json({ success: true, updated: data?.length ?? 0, row: data && data[0] });
+    }
+
+    const result = await sql`
+      UPDATE clientes
+      SET
+        nombre_completo = COALESCE(${nombre_completo}, nombre_completo),
+        tipo_identificacion = COALESCE(${tipo_identificacion}, tipo_identificacion),
+        numero_identificacion = COALESCE(${numero_identificacion}, numero_identificacion),
+        telefono = COALESCE(${telefono}, telefono),
+        email = COALESCE(${email}, email),
+        direccion = COALESCE(${direccion}, direccion),
+        fecha_nacimiento = COALESCE(${fecha_nacimiento}, fecha_nacimiento),
+        activo = COALESCE(${activo}, activo)
+      WHERE id_cliente = ${numericId}
+      RETURNING *
+    `;
+    const updated = Array.isArray(result) && result.length ? result[0] : null;
+    return res.json({ success: true, updated: updated ? 1 : 0, row: updated });
+  } catch (err) {
+    console.error('Error actualizando cliente:', err?.message ?? err);
+    res.status(500).json({ error: 'Error al actualizar cliente', detail: err?.message ?? String(err) });
+  }
+});
+
+// Eliminar cliente
+app.delete('/clientes/:id', async (req, res) => {
+  const idParam = req.params.id;
+  if (!idParam) return res.status(400).json({ error: 'id requerido en la ruta' });
+  try {
+    const numericId = /^\d+$/.test(idParam) ? parseInt(idParam, 10) : idParam;
+    if (supabase) {
+      const { data, error } = await supabase.from('clientes').delete().match({ id_cliente: numericId });
+      if (error) throw error;
+      return res.json({ success: true, deleted: data?.length ?? 0 });
+    }
+
+    const result = await sql`DELETE FROM clientes WHERE id_cliente = ${numericId} RETURNING id_cliente`;
+    const deleted = Array.isArray(result) ? result.length : 0;
+    return res.json({ success: true, deleted });
+  } catch (err) {
+    console.error('Error eliminando cliente:', err?.message ?? err);
+    res.status(500).json({ error: 'Error al eliminar cliente', detail: err?.message ?? String(err) });
+  }
+});
+
 // Actualizar un producto (p. ej. stock_actual)
 app.patch('/productos/:id', async (req, res) => {
   const idParam = req.params.id;

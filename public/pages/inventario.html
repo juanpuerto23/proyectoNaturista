@@ -48,7 +48,8 @@
             <li class="nav-item mb-1"><a href="../menu.html" class="nav-link">Dashboard</a></li>
             <li class="nav-item mb-1"><a href="inventario.html" class="nav-link active">Inventario</a></li>
             <li class="nav-item mb-1"><a href="gestorClientesMenu.html" class="nav-link">Gestor de Clientes</a></li>
-            <li class="nav-item mb-1"><a href="facturasElectronicas.html" class="nav-link">Facturas Electrónicas</a>
+            <li class="nav-item mb-1"><a id="btnFacturasElectronicas" class="nav-link"
+                href="facturasElectronicas.html">Facturas Electrónicas</a></li>
             <li class="nav-item mb-1"><a href="reportes.html" class="nav-link">Reportes</a></li>
             </li>
           </ul>
@@ -59,7 +60,7 @@
       <main class="col-lg-10 ms-auto px-4">
         <div class="row g-3 py-4">
           <div class="col-12 d-flex justify-content-between align-items-center">
-            <h3 class="fw-bold text-success">Gestión de Inventario</h3>
+            <h3 class="fw-bold">Gestión de Inventario</h3>
             <div class="d-flex gap-2">
               <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevo">+ Añadir Producto</button>
               <button id="btnAddProveedor" class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalProveedor">+ Añadir Proveedor</button>
@@ -104,9 +105,9 @@
                         <th>Nombre</th>
                         <th>ID</th>
                         <th>Categoria</th>
-                        <th>Stock Actual</th>
-                        <th>Fecha Vencimiento</th>
-                        <th>Precio Venta</th>
+                        <th>Stock actual</th>
+                        <th>Fecha vencimiento</th>
+                        <th>Precio venta</th>
                         <th>Descripción</th>
                         <th class="text-end">Acciones</th>
                       </tr>
@@ -152,7 +153,7 @@
                 <input id="p_stock" type="number" class="form-control" min="0">
               </div>
               <div class="col-md-4">
-                <label class="form-label">Fecha Vencimiento</label>
+                <label class="form-label">Fecha vencimiento</label>
                 <input id="p_exp" type="date" class="form-control" required>
               </div>
               <div class="col-md-4">
@@ -160,11 +161,11 @@
                 <select id="p_supplier" class="form-select" required></select>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Precio Venta</label>
+                <label class="form-label">Precio venta</label>
                 <input id="p_pv" type="number" class="form-control" min="0"></input>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Precio Compra</label>
+                <label class="form-label">Precio compra</label>
                 <input id="p_pc" type="number" class="form-control" min="0"></input>
               </div>
               <div class="col-md-12">
@@ -194,7 +195,7 @@
                 <form id="formProveedor" onsubmit="return false;">
                   <div class="row g-2">
                     <div class="col-md-6">
-                      <label class="form-label">Nombre Proveedor</label>
+                      <label class="form-label">Nombre del proveedor</label>
                       <input id="prov_nombre" class="form-control" required>
                     </div>
                     <div class="col-md-6">
@@ -240,7 +241,7 @@
                 <form id="formCategoria" onsubmit="return false;">
                   <div class="row g-2">
                     <div class="col-12">
-                      <label class="form-label">Nombre Categoría</label>
+                      <label class="form-label">Nombre de la categoría</label>
                       <input id="cat_nombre" class="form-control" required>
                     </div>
                     <div class="col-12">
@@ -314,7 +315,7 @@
             console.warn('selectCategorias no encontrado en el DOM');
             return;
           }
-          selectCategorias.innerHTML = '<option value="">Seleccione categoría</option>';
+          selectCategorias.innerHTML = '<option value="">Filtrar: categoría</option>';
           if (Array.isArray(data) && data.length) {
             data.forEach(c => {
               const id = (c.id_categoria ?? c.id ?? c.id_categoria)?.toString() ?? '';
@@ -340,7 +341,7 @@
             console.warn('selectProveedores no encontrado en el DOM');
             return;
           }
-          selectProveedores.innerHTML = '<option value="">Seleccione proveedor</option>';
+          selectProveedores.innerHTML = '<option value="">Filtrar: proveedor</option>';
           if (Array.isArray(data) && data.length) {
             data.forEach(p => {
               const id = (p.id_proveedor ?? p.id ?? p.id_proveedor)?.toString() ?? '';

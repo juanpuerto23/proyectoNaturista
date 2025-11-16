@@ -183,3 +183,47 @@ body {
   background-color: #2E7D32;
   color: #fff;
 }
+
+/* === Tarjetas estilo 'Reportes' y ajustes de títulos === */
+/* Clase para tarjetas que deben tener la apariencia de la tarjeta Reportes */
+.card-report {
+  background: #FFFFFF;
+  border: 1px solid #E0E0E0;
+  border-radius: 0.75rem;
+  transition: all 0.25s ease;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+
+.card-report .card-body {
+  padding: 0.9rem 1rem;
+}
+
+/* Forzar títulos de tarjetas en negro y peso seminegro */
+.card-report .card-title,
+.card .card-title,
+.card-metric h6,
+.card .card-body h6 {
+  color: #000 !important;
+  font-weight: 700;
+}
+
+/* Ajustes internos para mejor lectura */
+.card-report .list-group-item {
+  border: none;
+  padding: 0.45rem 0.75rem;
+  color: #333;
+  background: transparent;
+}
+
+.card-report .table-responsive { padding-top: 0.25rem; }
+
+.card-report .btn-outline-success {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Opcional: suavizar hover para estas tarjetas */
+.card-report:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+}
