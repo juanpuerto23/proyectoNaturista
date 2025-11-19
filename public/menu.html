@@ -13,6 +13,16 @@
 
   <!-- Custom CSS -->
   <link rel="stylesheet" href="css/styleMenu.css">
+  <style>
+    /* Dashboard metric delta styling */
+    .card-metric { padding: 18px; border-radius: 8px; }
+    .card-metric .metric-value { font-size: 1.5rem; font-weight:700; margin:0; }
+    .card-metric .metric-delta { margin-top:6px; font-size:0.85rem; color:#6c757d; }
+    .delta-positive { color: #198754 !important; font-weight:600; }
+    .delta-negative { color: #dc3545 !important; font-weight:600; }
+    .delta-neutral { color: #6c757d; }
+    .delta-arrow { margin-right:6px; font-size:0.9rem; }
+  </style>
 </head>
 
 <body class="bg-light">
@@ -89,9 +99,8 @@
         <div class="row g-3 py-4">
           <div class="col-12 d-flex justify-content-between align-items-center">
             <div class="ms-auto d-flex gap-2 align-items-center">
-              <button class="btn btn-outline-secondary btn-sm">Perfil</button>
-              <button class="btn btn-success btn-sm" onclick="window.location.href='/public/index.html'">Cerrar
-                sesión</button>
+              <button id="btnProfile" type="button" class="btn btn-outline-secondary btn-sm">Perfil</button>
+              <button id="btnLogoutTop" class="btn btn-success btn-sm">Cerrar sesión</button>
             </div>
           </div>
 
@@ -101,25 +110,29 @@
               <div class="col-md-3">
                 <div class="card-metric">
                   <h6 class="text-muted">Inventario total</h6>
-                  <h4 id="inventoryValue" class="mt-2">$0</h4>
+                  <h4 id="inventoryValue" class="mt-2 metric-value">$0</h4>
+                  <div class="metric-delta"><small id="inventoryDelta" class="text-muted">—</small></div>
                 </div>
               </div>
               <div class="col-md-3">
                 <div class="card-metric">
                   <h6 class="text-muted">Alertas de stock</h6>
-                  <h4 id="lowStockCount" class="mt-2">0</h4>
+                  <h4 id="lowStockCount" class="mt-2 metric-value">0</h4>
+                  <div class="metric-delta"><small id="lowStockDelta" class="text-muted">—</small></div>
                 </div>
               </div>
               <div class="col-md-3">
                 <div class="card-metric">
                   <h6 class="text-muted">Ventas del día</h6>
-                  <h4 id="todaysSales" class="fw-bold">$0</h4>
+                  <h4 id="todaysSales" class="fw-bold metric-value">$0</h4>
+                  <div class="metric-delta"><small id="todaysSalesDelta" class="text-muted">—</small></div>
                 </div>
               </div>
               <div class="col-md-3">
                 <div class="card-metric">
-                  <h6 class="text-muted">Clientes activos</h6>
-                  <h4 id="activeClients" class="fw-bold">0</h4>
+                  <h6 class="text-muted">Clientes agregados hoy</h6>
+                  <h4 id="activeClients" class="fw-bold metric-value">0</h4>
+                  <div class="metric-delta"><small id="activeClientsDelta" class="text-muted">—</small></div>
                 </div>
               </div>
             </div>
@@ -242,6 +255,40 @@
           </section>
 
           <!-- MODALES (ejemplo: añadir/editar producto) -->
+          <!-- Modal Perfil de Usuario -->
+          <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 id="profileModalLabel" class="modal-title">Perfil</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="mb-3">
+                    <label class="form-label">Usuario</label>
+                    <input id="profileUsername" class="form-control" type="text" readonly>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Rol</label>
+                    <input id="profileRole" class="form-control" type="text" readonly>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input id="profileEmail" class="form-control" type="text" readonly>
+                  </div>
+                  <div class="mb-0">
+                    <label class="form-label">Creado</label>
+                    <input id="profileCreated" class="form-control" type="text" readonly>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                  <button id="btnProfileLogout" type="button" class="btn btn-danger">Cerrar sesión</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel"
             aria-hidden="true">
             <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -326,6 +373,34 @@
                   rolElement.textContent = rolDisplay === 'Admin' ? 'Admin' : 'Empleado';
                 }
 
+                // Botón Perfil: llenar y mostrar modal
+                (function initProfileButton() {
+                  const btn = document.getElementById('btnProfile');
+                  const modalEl = document.getElementById('profileModal');
+                  if (!btn || !modalEl) return;
+                  btn.addEventListener('click', () => {
+                    try {
+                      const username = user.user_login || user.username || user.user || '-';
+                      const role = user.rol || '-';
+                      const email = user.email || user.correo || '-';
+                      const createdRaw = user.created_at || user.createdAt || user.fecha_creacion || user.fecha || null;
+                      const created = createdRaw ? new Date(createdRaw) : null;
+                      document.getElementById('profileUsername').value = String(username);
+                      document.getElementById('profileRole').value = String(role);
+                      document.getElementById('profileEmail').value = String(email);
+                      document.getElementById('profileCreated').value = created && !isNaN(created) ? created.toLocaleString() : '-';
+                      const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                      modal.show();
+                    } catch (e) { console.warn('No se pudo abrir el modal de perfil', e); }
+                  });
+
+                  // Logout desde modal perfil
+                  document.getElementById('btnProfileLogout')?.addEventListener('click', () => {
+                    try { localStorage.removeItem('user'); } catch (e) {}
+                    window.location.href = '/index.html';
+                  });
+                })();
+
                 // Log para debug
                 console.log('Usuario conectado:', user.user_login, 'Rol:', user.rol);
 
@@ -347,7 +422,8 @@
                     for (const p of productos) {
                       const precio = parseFloat(p.precio_venta ?? p.precio ?? 0) || 0;
                       const stock = Number(p.stock_actual ?? p.stock ?? 0) || 0;
-                      inventoryTotal += precio;
+                      // inventory total should reflect value = precio * stock
+                      inventoryTotal += precio * stock;
                       if (stock < 5) lowStockCount += 1;
                     }
 
@@ -355,6 +431,249 @@
                     const lowEl = document.getElementById('lowStockCount');
                     if (invEl) invEl.textContent = '$' + inventoryTotal.toFixed(2);
                     if (lowEl) lowEl.textContent = String(lowStockCount);
+                    // Calcular ventas del día y clientes creados hoy
+                      try {
+                        // helper para comparar solo fecha (año-mes-día)
+                        const isSameDay = (d1, d2) => {
+                          return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+                        };
+
+                        const today = new Date();
+
+                        // small helper: escape HTML (moved arriba para estar disponible antes de uso)
+                        function escapeHtml(s) {
+                          if (s === null || typeof s === 'undefined') return '';
+                          return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        }
+
+                        // Rellena la tarjeta lateral de clientes (moved here so it's defined before use)
+                        function populateClientsCard(clients) {
+                          const clientsTbody = document.querySelector('#clientsTable tbody');
+                          if (!clientsTbody) return;
+                          clientsTbody.innerHTML = '';
+
+                          if (!Array.isArray(clients) || clients.length === 0) {
+                            clientsTbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">Sin clientes</td></tr>';
+                            return;
+                          }
+
+                          // Preferir clientes más recientes si hay campos de fecha
+                          const hasDateField = clients.some(c => c.fecha_creacion || c.created_at || c.createdAt);
+                          let ordered = clients;
+                          if (hasDateField) {
+                            ordered = clients.slice().sort((a, b) => {
+                              const da = new Date(a.fecha_creacion || a.created_at || a.createdAt || 0).getTime() || 0;
+                              const db = new Date(b.fecha_creacion || b.created_at || b.createdAt || 0).getTime() || 0;
+                              return db - da; // descendente: más recientes primero
+                            });
+                          }
+
+                          // Mostrar hasta 5 clientes (los primeros o los más recientes)
+                          const listToShow = ordered.slice(0, 5);
+
+                          for (const c of listToShow) {
+                            const name = (c.nombre_completo ?? c.nombre ?? c.nombre_cliente ?? 'Sin nombre');
+                            const contact = (c.email ?? c.telefono ?? c.contacto ?? '-');
+                            const id = c.id_cliente ?? c.id ?? '';
+                            clientsTbody.insertAdjacentHTML('beforeend', `<tr data-id="${escapeHtml(id)}" class="client-row" style="cursor:pointer"><td>${escapeHtml(name)}</td><td>${escapeHtml(contact)}</td></tr>`);
+                          }
+
+                          // click en fila: navegar al gestor y pasar id mediante localStorage
+                          clientsTbody.querySelectorAll('tr.client-row').forEach(row => {
+                            row.addEventListener('click', () => {
+                              const id = row.getAttribute('data-id');
+                              try { localStorage.setItem('selectedClientId', id); } catch (e) { /* ignore */ }
+                              // navegar al gestor de clientes
+                              window.location.href = 'pages/gestorClientesMenu.html';
+                            });
+                          });
+                        }
+
+                        // helper: normaliza respuestas JSON comunes a arreglos
+                        async function fetchJsonArray(url) {
+                          try {
+                            const r = await fetch(url);
+                            if (!r.ok) return [];
+                            const j = await r.json().catch(() => null);
+                            if (!j) return [];
+                            if (Array.isArray(j)) return j;
+                            if (Array.isArray(j.rows)) return j.rows;
+                            if (Array.isArray(j.data)) return j.data;
+                            if (Array.isArray(j.result)) return j.result;
+                            // soporte para claves específicas
+                            if (Array.isArray(j.ventas)) return j.ventas;
+                            if (Array.isArray(j.clientes)) return j.clientes;
+                            // si el objeto contiene objetos indexados numericamente, convertirlos
+                            const maybeArray = Object.values(j).filter(v => Array.isArray(v));
+                            if (maybeArray.length) return maybeArray[0];
+                            return [];
+                          } catch (err) {
+                            console.warn('fetchJsonArray error', url, err);
+                            return [];
+                          }
+                        }
+
+                        // ventas
+                        const ventas = await fetchJsonArray('/ventas');
+                        let totalVentasHoy = 0;
+                        for (const v of ventas) {
+                          const fecha = v.fecha_venta || v.fecha || v.created_at || v.createdAt || null;
+                          if (!fecha) continue;
+                          const d = new Date(fecha);
+                          if (isNaN(d.getTime())) continue;
+                          if (isSameDay(d, today)) {
+                            totalVentasHoy += Number(v.total_pagar ?? v.total ?? v.total_pv ?? 0) || 0;
+                          }
+                        }
+                        const todaysEl = document.getElementById('todaysSales');
+                        if (todaysEl) todaysEl.textContent = '$' + (Number(totalVentasHoy).toFixed(2));
+
+                        // clientes agregados hoy
+                        const clientes = await fetchJsonArray('/clientes');
+                        let clientesHoy = 0;
+                        for (const c of clientes) {
+                          const f = c.fecha_creacion || c.fecha_creado || c.created_at || c.createdAt || c.fecha || null;
+                          if (!f) continue;
+                          const d = new Date(f);
+                          if (isNaN(d.getTime())) continue;
+                          if (isSameDay(d, today)) clientesHoy += 1;
+                        }
+                        const activeEl = document.getElementById('activeClients');
+                        if (activeEl) activeEl.textContent = String(clientesHoy);
+
+                        // Mostrar deltas comparativos usando datos del servidor para el día anterior
+                        try {
+                          // fechas
+                          const todayDate = new Date();
+                          const yesterdayDate = new Date(todayDate);
+                          yesterdayDate.setDate(todayDate.getDate() - 1);
+                          const toIsoDay = d => d.toISOString().slice(0,10);
+                          const todayKey = toIsoDay(todayDate);
+                          const yesterdayKey = toIsoDay(yesterdayDate);
+
+                          // calcular ventas y clientes del día anterior usando las mismas fuentes ya fetch-eadas
+                          let ventasHoyDetalles = [];
+                          let ventasAyerDetalles = [];
+                          let ventasHoyTotalValue = 0;
+                          let ventasAyerTotalValue = 0;
+
+                          for (const v of ventas) {
+                            const fecha = v.fecha_venta || v.fecha || v.created_at || v.createdAt || null;
+                            if (!fecha) continue;
+                            const d = new Date(fecha);
+                            if (isNaN(d.getTime())) continue;
+                            // attempt to extract detalles array if present
+                            const detalles = Array.isArray(v.detalles) ? v.detalles : (Array.isArray(v.detalle) ? v.detalle : (Array.isArray(v.items) ? v.items : (Array.isArray(v.detalle_ventas) ? v.detalle_ventas : [])));
+
+                            if (isSameDay(d, todayDate)) {
+                              ventasHoyDetalles.push({ venta: v, detalles });
+                              ventasHoyTotalValue += Number(v.total_pagar ?? v.total ?? v.total_pv ?? 0) || 0;
+                            } else if (isSameDay(d, yesterdayDate)) {
+                              ventasAyerDetalles.push({ venta: v, detalles });
+                              ventasAyerTotalValue += Number(v.total_pagar ?? v.total ?? v.total_pv ?? 0) || 0;
+                            }
+                          }
+
+                          // clientes ayer
+                          let clientesAyer = 0;
+                          for (const c of clientes) {
+                            const f = c.fecha_creacion || c.fecha_creado || c.created_at || c.createdAt || c.fecha || null;
+                            if (!f) continue;
+                            const d = new Date(f);
+                            if (isNaN(d.getTime())) continue;
+                            if (isSameDay(d, yesterdayDate)) clientesAyer += 1;
+                          }
+
+                          // Estimar inventario al final de ayer (inicio de hoy) sumando lo vendido hoy sobre el inventario actual
+                          // y estimar lowStockCount ayer agregando cantidades vendidas por producto
+                          const soldByProductToday = Object.create(null);
+                          let soldValueToday = 0;
+                          for (const entry of ventasHoyDetalles) {
+                            const dets = entry.detalles || [];
+                            if (!Array.isArray(dets) || dets.length === 0) continue;
+                            for (const it of dets) {
+                              const pid = it.id_producto ?? it.id_producto_fk ?? it.id_producto_id ?? it.id ?? it.producto_id ?? it.product_id ?? null;
+                              const qty = Number(it.cantidad ?? it.qty ?? it.quantity ?? 0) || 0;
+                              const price = Number(it.precio ?? it.precio_unitario ?? it.price ?? it.precio_venta ?? 0) || 0;
+                              if (!pid) continue;
+                              soldByProductToday[pid] = (soldByProductToday[pid] || 0) + qty;
+                              soldValueToday += qty * (price || 0);
+                            }
+                          }
+
+                          // fallback: if detalles absent, approximate soldValueToday from ventasHoyTotalValue
+                          if (soldValueToday === 0) soldValueToday = ventasHoyTotalValue || 0;
+
+                          // calcular inventario estimado de ayer
+                          let estimatedInventoryYesterday = 0;
+                          let estimatedLowStockYesterday = 0;
+                          for (const p of productos) {
+                            const precio = parseFloat(p.precio_venta ?? p.precio ?? 0) || 0;
+                            const stock = Number(p.stock_actual ?? p.stock ?? 0) || 0;
+                            // stock at start of today = current stock + qty sold today
+                            const pid = p.id_producto ?? p.id ?? '';
+                            const soldQty = Number(soldByProductToday[pid] || 0) || 0;
+                            const stockAtStart = stock + soldQty;
+                            estimatedInventoryYesterday += precio * stockAtStart;
+                            if (stockAtStart < 5) estimatedLowStockYesterday += 1;
+                          }
+
+                          const previousMetrics = {
+                            inventoryTotal: Number(estimatedInventoryYesterday) || 0,
+                            lowStockCount: Number(estimatedLowStockYesterday) || 0,
+                            todaysSales: Number(ventasAyerTotalValue) || 0,
+                            activeClients: Number(clientesAyer) || 0
+                          };
+
+                          // helper para aplicar delta y colorear
+                          function applyDelta(valueEl, deltaElId, current, previous, invertSign) {
+                            const deltaEl = document.getElementById(deltaElId);
+                            if (!deltaEl || typeof current !== 'number') return;
+                            const valEl = valueEl;
+                            if (!valEl) return;
+
+                            if (!previous || Number(previous) === 0) {
+                              deltaEl.textContent = '—';
+                              deltaEl.className = 'text-muted';
+                              valEl.classList.remove('delta-positive','delta-negative');
+                              valEl.classList.add('delta-neutral');
+                              return;
+                            }
+
+                            const rawChange = current - previous;
+                            const change = invertSign ? -rawChange : rawChange;
+                            const pct = (change / previous) * 100;
+                            const rounded = Math.abs(pct) < 0.05 ? 0 : Math.round(pct * 10) / 10; // 0.1 precision
+                            if (rounded === 0) {
+                              deltaEl.textContent = '—';
+                              deltaEl.className = 'text-muted';
+                              valEl.classList.remove('delta-positive','delta-negative');
+                              valEl.classList.add('delta-neutral');
+                              return;
+                            }
+                            const arrow = pct > 0 ? '▲' : '▼';
+                            const cls = pct > 0 ? 'delta-positive' : 'delta-negative';
+                            deltaEl.innerHTML = `<span class="delta-arrow">${arrow}</span>${Math.abs(rounded)}%`;
+                            deltaEl.className = cls;
+                            valEl.classList.remove('delta-positive','delta-negative','delta-neutral');
+                            valEl.classList.add(cls);
+                          }
+
+                          // aplicar comparaciones: invertimos lowStockCount (más alertas = malo)
+                          applyDelta(document.getElementById('inventoryValue'), 'inventoryDelta', Number(inventoryTotal) || 0, previousMetrics.inventoryTotal, false);
+                          applyDelta(document.getElementById('lowStockCount'), 'lowStockDelta', Number(lowStockCount) || 0, previousMetrics.lowStockCount, true);
+                          applyDelta(document.getElementById('todaysSales'), 'todaysSalesDelta', Number(totalVentasHoy) || 0, previousMetrics.todaysSales, false);
+                          applyDelta(document.getElementById('activeClients'), 'activeClientsDelta', Number(clientesHoy) || 0, previousMetrics.activeClients, false);
+
+                        } catch (e) {
+                          console.warn('Error calculando deltas de métricas (server compare):', e);
+                        }
+
+                        // Poblar tarjeta lateral de clientes (uso función reutilizable abajo)
+                        try { populateClientsCard(clientes); } catch(e) { console.warn('Error llenando clientsTable:', e); }
+                      } catch (e) {
+                        console.warn('Error calculando ventas/clientes hoy:', e);
+                      }
                     // Llenar lista de alertas con los nombres de productos con stock < 5
                     try {
                       const alertsEl = document.getElementById('alertsList');
@@ -370,6 +689,8 @@
                           });
                         }
                       }
+
+                        // Rellena la tarjeta lateral de clientes (moved to top of metrics block)
                     } catch (e) {
                       console.error('Error actualizando alertsList:', e);
                     }
@@ -865,9 +1186,9 @@
               }
             });
 
-            // Botón cerrar sesión
-            document.querySelector('.btn-success')?.addEventListener('click', () => {
-              localStorage.removeItem('user');
+            // Botón cerrar sesión (solo el del header)
+            document.getElementById('btnLogoutTop')?.addEventListener('click', () => {
+              try { localStorage.removeItem('user'); } catch (e) {}
               window.location.href = '/index.html';
             });
           </script>

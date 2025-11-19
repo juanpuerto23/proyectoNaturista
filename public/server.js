@@ -67,6 +67,177 @@ app.get('/productos', async (req, res) => {
   }
 });
 
+// -----------------------------
+// CREAR VENTA (facturación)
+// Body: { id_cliente, id_empleado (optional), subtotal, descuento_porcentaje, descuento_valor, iva_porcentaje, iva_valor, total_pagar, observaciones, detalles: [{ id_producto, cantidad, precio_unitario, descuento_detalle, subtotal_detalle }] }
+app.post('/ventas', async (req, res) => {
+  const body = req.body || {};
+  const detalles = Array.isArray(body.detalles) ? body.detalles : [];
+  if (!body.id_cliente || !Array.isArray(detalles) || detalles.length === 0) {
+    return res.status(400).json({ error: 'id_cliente y detalles son requeridos' });
+  }
+
+  try {
+    // 1) Validar stock para todos los productos
+    for (const d of detalles) {
+      const pid = d.id_producto;
+      const qty = Number(d.cantidad || 0);
+      if (!pid || qty <= 0) return res.status(400).json({ error: 'Detalle con id_producto y cantidad válida requeridos' });
+      if (supabase) {
+        const { data: prod, error } = await supabase.from('productos').select('id_producto,stock_actual,nombre_producto').eq('id_producto', pid).limit(1).single();
+        if (error || !prod) return res.status(400).json({ error: 'Producto no encontrado', id_producto: pid });
+        if ((prod.stock_actual || 0) < qty) return res.status(409).json({ error: 'stock_insuficiente', id_producto: pid, disponible: prod.stock_actual });
+      } else {
+        const rows = await sql`SELECT stock_actual FROM productos WHERE id_producto = ${pid}`;
+        const prod = Array.isArray(rows) && rows.length ? rows[0] : null;
+        if (!prod) return res.status(400).json({ error: 'Producto no encontrado', id_producto: pid });
+        if ((prod.stock_actual || 0) < qty) return res.status(409).json({ error: 'stock_insuficiente', id_producto: pid, disponible: prod.stock_actual });
+      }
+    }
+
+    // 2) Insertar venta y detalles, luego decrementar stock
+    if (supabase) {
+      // calcular numero_factura (último + 1) usando Supabase
+      let nextNumeroFactura = 1;
+      try {
+        const { data: last, error: lastErr } = await supabase.from('ventas').select('numero_factura').order('numero_factura', { ascending: false }).limit(1).single();
+        if (!lastErr && last && typeof last.numero_factura !== 'undefined') nextNumeroFactura = Number(last.numero_factura || 0) + 1;
+      } catch (e) {
+        // ignore and use 1
+      }
+
+      // insertar venta (reintentos si numero_factura ya existe)
+      const MAX_RETRIES = 5;
+      let ventaRow = null;
+      let attempt = 0;
+      let lastError = null;
+      while (attempt < MAX_RETRIES) {
+        attempt += 1;
+        // recalcular nextNumeroFactura si no fue provisto por el cliente
+        if (typeof body.numero_factura === 'undefined') {
+          try {
+            const { data: last, error: lastErr } = await supabase.from('ventas').select('numero_factura').order('numero_factura', { ascending: false }).limit(1).single();
+            if (!lastErr && last && typeof last.numero_factura !== 'undefined') nextNumeroFactura = Number(last.numero_factura || 0) + 1;
+          } catch (e) {
+            // ignore and keep previous nextNumeroFactura
+          }
+        }
+
+        const ventaObj = {
+          id_cliente: body.id_cliente,
+          id_empleado: body.id_empleado || null,
+          id_metodo_pago: typeof body.id_metodo_pago !== 'undefined' ? body.id_metodo_pago : 1,
+          subtotal: body.subtotal || 0,
+          descuento_porcentaje: body.descuento_porcentaje || 0,
+          descuento_valor: body.descuento_valor || 0,
+          iva_porcentaje: body.iva_porcentaje || 0,
+          iva_valor: body.iva_valor || 0,
+          total_pagar: body.total_pagar || 0,
+          observaciones: body.observaciones || null,
+          numero_factura: typeof body.numero_factura !== 'undefined' ? body.numero_factura : nextNumeroFactura,
+        };
+
+        const { data: vdata, error: verr } = await supabase.from('ventas').insert([ventaObj]).select();
+        if (!verr && vdata && vdata[0]) {
+          ventaRow = vdata[0];
+          break;
+        }
+
+        lastError = verr || new Error('Unknown insert error');
+        const msg = String((verr && (verr.message || verr.details || verr.code)) || verr || '').toLowerCase();
+        // si es duplicate key sobre numero_factura, intentar de nuevo (recalcular)
+        if (msg.includes('duplicate') || (verr && verr.code === '23505') || (verr && String(verr.message || '').toLowerCase().includes('numero_factura'))) {
+          // loop y recalcular
+          continue;
+        }
+        // otro error: no intentar más
+        break;
+      }
+      if (!ventaRow) {
+        // si el último error fue duplicado, devolver 409, si no devolver 500
+        const isDup = lastError && (String(lastError.message || '').toLowerCase().includes('duplicate') || (lastError && lastError.code === '23505'));
+        if (isDup) return res.status(409).json({ error: 'duplicate_numero_factura', detail: String(lastError.message || lastError) });
+        throw lastError || new Error('Error inserting venta via Supabase');
+      }
+
+      // insertar detalles y decrementar stock uno a uno
+      for (const d of detalles) {
+        const detObj = { id_venta: ventaRow.id_venta, id_producto: d.id_producto, cantidad: d.cantidad, precio_unitario: d.precio_unitario, subtotal_detalle: d.subtotal_detalle, descuento_detalle: d.descuento_detalle };
+        const { data: detData, error: detErr } = await supabase.from('detalle_ventas').insert([detObj]).select();
+        if (detErr) throw detErr;
+        // decrementar stock
+        const { data: prodData, error: updErr } = await supabase.from('productos').select('stock_actual').eq('id_producto', d.id_producto).limit(1).single();
+        if (updErr) throw updErr;
+        const newStock = (prodData.stock_actual || 0) - Number(d.cantidad || 0);
+        const { data: udata, error: uerr } = await supabase.from('productos').update({ stock_actual: newStock }).eq('id_producto', d.id_producto).select();
+        if (uerr) throw uerr;
+      }
+
+      return res.json({ success: true, venta: ventaRow });
+    }
+
+    // SQL fallback: pre-check already done; insert venta
+    // Intentar insertar venta en SQL con reintentos si numero_factura ya existe (race condition)
+    let idVenta = null;
+    let returnedNumeroFactura = null;
+    let lastSqlErr = null;
+    const MAX_SQL_RETRIES = 5;
+    for (let attemptSql = 0; attemptSql < MAX_SQL_RETRIES; attemptSql++) {
+      try {
+        // calcular numero_factura actual
+        const nextNumRows = await sql`SELECT COALESCE(MAX(numero_factura),0) + 1 AS next_num FROM ventas`;
+        const nextNumero = Array.isArray(nextNumRows) && nextNumRows.length ? nextNumRows[0].next_num : 1;
+
+        const insertVenta = await sql`
+          INSERT INTO ventas (id_cliente, id_empleado, id_metodo_pago, numero_factura, subtotal, descuento_porcentaje, descuento_valor, iva_porcentaje, iva_valor, total_pagar, observaciones, fecha_venta)
+          VALUES (
+            ${body.id_cliente},
+            ${body.id_empleado || null},
+            ${typeof body.id_metodo_pago !== 'undefined' ? body.id_metodo_pago : 1},
+            ${nextNumero},
+            ${body.subtotal || 0}, ${body.descuento_porcentaje || 0}, ${body.descuento_valor || 0}, ${body.iva_porcentaje || 0}, ${body.iva_valor || 0}, ${body.total_pagar || 0}, ${body.observaciones || null}, now()
+          )
+          RETURNING id_venta, numero_factura
+        `;
+        idVenta = Array.isArray(insertVenta) && insertVenta.length ? insertVenta[0].id_venta : null;
+        returnedNumeroFactura = Array.isArray(insertVenta) && insertVenta.length ? insertVenta[0].numero_factura : null;
+        if (!idVenta) throw new Error('No se pudo crear venta');
+        // éxito
+        break;
+      } catch (sqlErr) {
+        lastSqlErr = sqlErr;
+        const msg = String(sqlErr?.message || '').toLowerCase();
+        if (msg.includes('duplicate') || String(sqlErr?.detail || '').toLowerCase().includes('numero_factura') || (sqlErr && sqlErr.code === '23505')) {
+          // intentar nuevamente (otra iteración recalculará next numero)
+          continue;
+        }
+        // otro error: no reintentar
+        break;
+      }
+    }
+    if (!idVenta) {
+      const isDup = lastSqlErr && (String(lastSqlErr.message || '').toLowerCase().includes('duplicate') || (lastSqlErr && lastSqlErr.code === '23505'));
+      if (isDup) return res.status(409).json({ error: 'duplicate_numero_factura', detail: String(lastSqlErr.message || lastSqlErr) });
+      throw lastSqlErr || new Error('Error inserting venta (sql)');
+    }
+
+    // insertar detalles
+    for (const d of detalles) {
+      await sql`
+        INSERT INTO detalle_ventas (id_venta, id_producto, cantidad, precio_unitario, subtotal_detalle, descuento_detalle, fecha_creacion)
+        VALUES (${idVenta}, ${d.id_producto}, ${d.cantidad}, ${d.precio_unitario}, ${d.subtotal_detalle}, ${d.descuento_detalle || 0}, now())
+      `;
+      // decrementar stock
+      await sql`UPDATE productos SET stock_actual = stock_actual - ${d.cantidad} WHERE id_producto = ${d.id_producto}`;
+    }
+
+    return res.json({ success: true, venta_id: idVenta, numero_factura: returnedNumeroFactura });
+  } catch (err) {
+    console.error('Error al crear venta:', err?.message ?? err);
+    res.status(500).json({ error: 'Error al crear venta', detail: err?.message ?? String(err) });
+  }
+});
+
 // Rutas compatibles con el frontend antiguo (/categorias y /proveedores)
 app.get('/categorias', async (req, res) => {
   try {
@@ -356,6 +527,23 @@ app.get('/clientes', async (req, res) => {
   }
 });
 
+// Listar ventas (para dashboard)
+app.get('/ventas', async (req, res) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase.from('ventas').select('*').order('fecha_venta', { ascending: false }).limit(1000);
+      if (error) throw error;
+      return res.json(data);
+    }
+
+    const rows = await sql`SELECT * FROM ventas ORDER BY fecha_venta DESC LIMIT 1000`;
+    res.json(rows);
+  } catch (err) {
+    console.error('Error al obtener ventas:', err?.message ?? err);
+    res.status(500).json({ error: 'Error al obtener ventas', detail: err?.message ?? String(err) });
+  }
+});
+
 // Obtener un cliente por id
 app.get('/clientes/:id', async (req, res) => {
   const idParam = req.params.id;
@@ -396,21 +584,33 @@ app.post('/clientes', async (req, res) => {
   if (!nombre_completo) return res.status(400).json({ error: 'nombre_completo requerido' });
 
   try {
+    console.log('POST /clientes payload:', JSON.stringify(req.body || {}));
     if (supabase) {
-      const { data, error } = await supabase.from('clientes').insert([{ nombre_completo, tipo_identificacion, numero_identificacion, telefono, email, direccion, fecha_nacimiento, activo }]).select();
-      if (error) throw error;
+      // incluir fecha_creacion si no viene
+      const payload = { nombre_completo, tipo_identificacion, numero_identificacion, telefono, email, direccion, fecha_nacimiento, activo, fecha_creacion: (req.body && req.body.fecha_creacion) ? req.body.fecha_creacion : new Date().toISOString() };
+      const { data, error } = await supabase.from('clientes').insert([payload]).select();
+      if (error) {
+        console.error('Supabase insert error (clientes):', error);
+        return res.status(500).json({ error: 'Error creando cliente (supabase)', detail: error.message || error?.msg || JSON.stringify(error) });
+      }
       return res.json({ success: true, row: data && data[0] });
     }
 
     const result = await sql`
-      INSERT INTO clientes (nombre_completo, tipo_identificacion, numero_identificacion, telefono, email, direccion, fecha_nacimiento, activo)
-      VALUES (${nombre_completo}, ${tipo_identificacion}, ${numero_identificacion}, ${telefono}, ${email}, ${direccion}, ${fecha_nacimiento}, ${activo})
+      INSERT INTO clientes (nombre_completo, tipo_identificacion, numero_identificacion, telefono, email, direccion, fecha_nacimiento, activo, fecha_creacion)
+      VALUES (${nombre_completo}, ${tipo_identificacion}, ${numero_identificacion}, ${telefono}, ${email}, ${direccion}, ${fecha_nacimiento}, ${activo}, now())
       RETURNING *
     `;
     const row = Array.isArray(result) && result.length ? result[0] : null;
     return res.json({ success: true, row });
   } catch (err) {
     console.error('Error creando cliente:', err?.message ?? err);
+    try {
+      const raw = JSON.stringify(err, Object.getOwnPropertyNames(err));
+      console.error('Full error object:', raw);
+    } catch (e) {
+      console.error('Error serializing error object', e);
+    }
     // Detectar violación de constraint (duplicate key)
     const isDuplicate = err && (err.code === '23505' || String(err.message || '').toLowerCase().includes('duplicate key') || String(err?.detail || '').toLowerCase().includes('already exists'));
     if (isDuplicate) {
@@ -430,7 +630,13 @@ app.post('/clientes', async (req, res) => {
       }
       return res.status(409).json({ error: 'Clave duplicada: posible registro existente', detail: err?.message ?? String(err) });
     }
-    res.status(500).json({ error: 'Error al crear cliente', detail: err?.message ?? String(err) });
+    // devolver detalle adicional para debug en desarrollo
+    let errDetail = err?.message ?? String(err);
+    try {
+      const extra = JSON.stringify(err, Object.getOwnPropertyNames(err));
+      errDetail = errDetail + ' | extra: ' + extra;
+    } catch (e) { }
+    res.status(500).json({ error: 'Error al crear cliente', detail: errDetail });
   }
 });
 
