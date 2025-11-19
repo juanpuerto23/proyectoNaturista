@@ -97,32 +97,14 @@ app.post('/ventas', async (req, res) => {
 
     // 2) Insertar venta y detalles, luego decrementar stock
     if (supabase) {
-      // calcular numero_factura (último + 1) usando Supabase
-      let nextNumeroFactura = 1;
-      try {
-        const { data: last, error: lastErr } = await supabase.from('ventas').select('numero_factura').order('numero_factura', { ascending: false }).limit(1).single();
-        if (!lastErr && last && typeof last.numero_factura !== 'undefined') nextNumeroFactura = Number(last.numero_factura || 0) + 1;
-      } catch (e) {
-        // ignore and use 1
-      }
-
-      // insertar venta (reintentos si numero_factura ya existe)
+      // Nuevo enfoque: dejar que el trigger en la base genere numero_factura.
+      // Sólo enviar numero_factura si el cliente lo provee explícitamente (body.numero_factura definido).
       const MAX_RETRIES = 5;
       let ventaRow = null;
       let attempt = 0;
       let lastError = null;
       while (attempt < MAX_RETRIES) {
         attempt += 1;
-        // recalcular nextNumeroFactura si no fue provisto por el cliente
-        if (typeof body.numero_factura === 'undefined') {
-          try {
-            const { data: last, error: lastErr } = await supabase.from('ventas').select('numero_factura').order('numero_factura', { ascending: false }).limit(1).single();
-            if (!lastErr && last && typeof last.numero_factura !== 'undefined') nextNumeroFactura = Number(last.numero_factura || 0) + 1;
-          } catch (e) {
-            // ignore and keep previous nextNumeroFactura
-          }
-        }
-
         const ventaObj = {
           id_cliente: body.id_cliente,
           id_empleado: body.id_empleado || null,
@@ -133,28 +115,29 @@ app.post('/ventas', async (req, res) => {
           iva_porcentaje: body.iva_porcentaje || 0,
           iva_valor: body.iva_valor || 0,
           total_pagar: body.total_pagar || 0,
-          observaciones: body.observaciones || null,
-          numero_factura: typeof body.numero_factura !== 'undefined' ? body.numero_factura : nextNumeroFactura,
+          observaciones: body.observaciones || null
         };
+        if (typeof body.numero_factura !== 'undefined' && body.numero_factura !== null && body.numero_factura !== '') {
+          ventaObj.numero_factura = body.numero_factura; // usar valor explícito proporcionado
+        }
 
         const { data: vdata, error: verr } = await supabase.from('ventas').insert([ventaObj]).select();
         if (!verr && vdata && vdata[0]) {
           ventaRow = vdata[0];
           break;
         }
-
         lastError = verr || new Error('Unknown insert error');
-        const msg = String((verr && (verr.message || verr.details || verr.code)) || verr || '').toLowerCase();
-        // si es duplicate key sobre numero_factura, intentar de nuevo (recalcular)
-        if (msg.includes('duplicate') || (verr && verr.code === '23505') || (verr && String(verr.message || '').toLowerCase().includes('numero_factura'))) {
-          // loop y recalcular
+        const msg = String((verr && (verr.message || verr.details || verr.code)) || '').toLowerCase();
+        // Reintentar sólo si conflicto duplicado sobre numero_factura
+        if (msg.includes('duplicate') || (verr && verr.code === '23505') || msg.includes('numero_factura')) {
+          // limpiar numero_factura para permitir que el trigger genere uno distinto en siguiente intento
+          body.numero_factura = undefined;
           continue;
         }
-        // otro error: no intentar más
+        // otro error: salir del loop
         break;
       }
       if (!ventaRow) {
-        // si el último error fue duplicado, devolver 409, si no devolver 500
         const isDup = lastError && (String(lastError.message || '').toLowerCase().includes('duplicate') || (lastError && lastError.code === '23505'));
         if (isDup) return res.status(409).json({ error: 'duplicate_numero_factura', detail: String(lastError.message || lastError) });
         throw lastError || new Error('Error inserting venta via Supabase');
@@ -163,13 +146,13 @@ app.post('/ventas', async (req, res) => {
       // insertar detalles y decrementar stock uno a uno
       for (const d of detalles) {
         const detObj = { id_venta: ventaRow.id_venta, id_producto: d.id_producto, cantidad: d.cantidad, precio_unitario: d.precio_unitario, subtotal_detalle: d.subtotal_detalle, descuento_detalle: d.descuento_detalle };
-        const { data: detData, error: detErr } = await supabase.from('detalle_ventas').insert([detObj]).select();
+        const { error: detErr } = await supabase.from('detalle_ventas').insert([detObj]);
         if (detErr) throw detErr;
         // decrementar stock
         const { data: prodData, error: updErr } = await supabase.from('productos').select('stock_actual').eq('id_producto', d.id_producto).limit(1).single();
         if (updErr) throw updErr;
         const newStock = (prodData.stock_actual || 0) - Number(d.cantidad || 0);
-        const { data: udata, error: uerr } = await supabase.from('productos').update({ stock_actual: newStock }).eq('id_producto', d.id_producto).select();
+        const { error: uerr } = await supabase.from('productos').update({ stock_actual: newStock }).eq('id_producto', d.id_producto);
         if (uerr) throw uerr;
       }
 

@@ -17,18 +17,33 @@
   <!-- NAVBAR (solo móvil) -->
   <nav class="navbar navbar-light bg-white shadow-sm d-lg-none">
     <div class="container-fluid">
-      <button class="btn btn-outline-success" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar"
-        aria-controls="sidebar">
+      <button class="btn btn-outline-success" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar" aria-label="Abrir navegación">
         ☰
       </button>
-      <span class="navbar-brand mb-0 h1">Reportes</span>
+      <a href="../menu.html" class="navbar-brand mb-0 h1">Reportes</a>
     </div>
   </nav>
+  <!-- OFFCANVAS MÓVIL -->
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
+    <div class="offcanvas-header">
+      <h5 id="mobileSidebarLabel">HerbalSys</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+    </div>
+    <div class="offcanvas-body">
+      <ul class="nav nav-pills flex-column">
+        <li class="nav-item mb-1"><a href="../menu.html" class="nav-link">Dashboard</a></li>
+        <li class="nav-item mb-1"><a href="inventario.html" class="nav-link">Inventario</a></li>
+        <li class="nav-item mb-1"><a href="gestorClientesMenu.html" class="nav-link">Gestor de Clientes</a></li>
+        <li class="nav-item mb-1"><a href="facturasElectronicas.html" class="nav-link">Facturas Electrónicas</a></li>
+        <li class="nav-item mb-1"><a href="reportes.html" class="nav-link active">Reportes</a></li>
+      </ul>
+    </div>
+  </div>
 
   <!-- CONTENEDOR PRINCIPAL -->
   <div class="app-container d-flex">
-    <!-- SIDEBAR -->
-    <aside id="sidebar" class="sidebar bg-white border-end p-4">
+    <!-- SIDEBAR (desktop) -->
+    <aside id="sidebar" class="sidebar bg-white border-end p-4 d-none d-lg-block">
       <div class="d-flex align-items-center mb-4">
         <div class="me-2">
           <svg width="34" height="34" viewBox="0 0 24 24" fill="green" class="text-success">
@@ -44,10 +59,8 @@
         <li class="nav-item mb-1"><a href="../menu.html" class="nav-link">Dashboard</a></li>
         <li class="nav-item mb-1"><a href="inventario.html" class="nav-link">Inventario</a></li>
         <li class="nav-item mb-1"><a href="gestorClientesMenu.html" class="nav-link">Gestor de Clientes</a></li>
-        <li class="nav-item mb-1"><a id="btnFacturasElectronicas" class="nav-link"
-                href="facturasElectronicas.html">Facturas Electrónicas</a></li>
+        <li class="nav-item mb-1"><a href="facturasElectronicas.html" class="nav-link">Facturas Electrónicas</a></li>
         <li class="nav-item mb-1"><a href="reportes.html" class="nav-link active">Reportes</a></li>
-        </li>
       </ul>
     </aside>
 

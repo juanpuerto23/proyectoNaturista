@@ -30,11 +30,11 @@
   <!-- NAVBAR (mobile) -->
   <nav class="navbar navbar-light bg-white shadow-sm d-lg-none">
     <div class="container-fluid">
-      <button class="btn btn-outline-success" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar"
-        aria-controls="sidebar">
+      <button class="btn btn-outline-success" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar"
+        aria-controls="mobileSidebar" aria-label="Abrir navegación">
         ☰
       </button>
-      <span class="navbar-brand mb-0 h1">HerbalSys</span>
+      <a class="navbar-brand mb-0 h1" href="menu.html">HerbalSys</a>
     </div>
   </nav>
 
@@ -74,22 +74,18 @@
       </aside>
 
       <!-- OFFCANVAS (móvil) -->
-      <div class="offcanvas offcanvas-start" tabindex="-1" id="sidebar" aria-labelledby="sidebarLabel">
+      <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
         <div class="offcanvas-header">
-          <h5 id="sidebarLabel">HerbalSys</h5>
+          <h5 id="mobileSidebarLabel">HerbalSys</h5>
           <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
         </div>
         <div class="offcanvas-body">
           <ul class="nav nav-pills flex-column">
-            <li class="nav-item mb-1"><a class="nav-link active" href="#">Dashboard</a></li>
-            <li class="nav-item mb-1"><a id="btnInventario" class="nav-link" href="pages/inventario.html">Inventario</a>
-            </li>
-            <li class="nav-item mb-1"><a id="btnLibroVentas" class="nav-link" href="pages/libroVentas.html">Libro de
-                Ventas</a></li>
-            <li class="nav-item mb-1"><a id="btnGestorClientes" class="nav-link"
-                href="pages/gestorClientesMenu.html">Gestor de Clientes</a></li>
-            <li class="nav-item mb-1"><a id="btnFacturasElectronicas" class="nav-link"
-                href="pages/facturasElectronicas.html">Facturas Electrónicas</a></li>
+            <li class="nav-item mb-1"><a class="nav-link active" href="menu.html">Dashboard</a></li>
+            <li class="nav-item mb-1"><a class="nav-link" href="pages/inventario.html">Inventario</a></li>
+            <li class="nav-item mb-1"><a class="nav-link" href="pages/gestorClientesMenu.html">Gestor de Clientes</a></li>
+            <li class="nav-item mb-1"><a class="nav-link" href="pages/facturasElectronicas.html">Facturas Electrónicas</a></li>
+            <li class="nav-item mb-1"><a class="nav-link" href="pages/reportes.html">Reportes</a></li>
           </ul>
         </div>
       </div>
