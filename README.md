@@ -304,8 +304,7 @@ Logs útiles: consola al arrancar muestra inicialización Supabase y URL DB.
 
 ---
 ## 14. Créditos
-Autor(es): Equipo académico / juanpuerto23. 
-Base de datos y modelo: diseñado para farmacia naturista con prácticas de integridad (FK, checks, triggers).
+Autor(es): Equipo académico / juanpuerto23 y jeferson0809. 
 
 ---
 ## Anexos Visuales
@@ -317,3 +316,4 @@ Base de datos y modelo: diseñado para farmacia naturista con prácticas de inte
 ![Captura Menu](public/img/menu_responsive.png)
 ### Animación Menú
 ![Captura Menu Animacion](public/img/menu_animation.png)
+
