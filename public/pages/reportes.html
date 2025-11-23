@@ -145,7 +145,7 @@
               <button class="btn btn-outline-secondary btn-sm">Restringir Resultados</button>
             </div>
             <label class="form-label">Rango de Fechas</label>
-            <div class="d-flex mb-3">
+            <div class="mx-auto mb-3">
               <input type="date" class="form-control me-2" />
               <input type="date" class="form-control" />
             </div>
@@ -170,10 +170,9 @@
           </div>
 
           <!-- Exportaciones Recientes -->
-          <div class="card p-3">
-            <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="card p-3", id="p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
               <span class="section-title">Exportaciones Recientes</span>
-              <button class="btn btn-outline-secondary btn-sm">Descargas</button>
             </div>
             <table class="table">
               <thead class="text-muted">
@@ -181,7 +180,6 @@
                   <th>Archivo</th>
                   <th>Fecha</th>
                   <th>Tamaño</th>
-                  <th>Acciones</th>
                 </tr>
               </thead>
                   <tbody id="recentExportsTbody"></tbody>
@@ -264,11 +262,7 @@
           const tdName = document.createElement('td'); tdName.textContent = e.filename;
           const tdDate = document.createElement('td'); tdDate.textContent = (new Date(e.date)).toLocaleString();
           const tdSize = document.createElement('td'); tdSize.textContent = (e.size/1024).toFixed(1) + ' KB';
-          const tdAction = document.createElement('td');
-          const btn = document.createElement('button'); btn.className = 'btn btn-success btn-sm'; btn.textContent = 'Descargar';
-          btn.addEventListener('click', () => downloadCsv(e.filename, e.csv));
-          tdAction.appendChild(btn);
-          tr.appendChild(tdName); tr.appendChild(tdDate); tr.appendChild(tdSize); tr.appendChild(tdAction);
+          tr.appendChild(tdName); tr.appendChild(tdDate); tr.appendChild(tdSize);
           tbody.appendChild(tr);
         }
       }

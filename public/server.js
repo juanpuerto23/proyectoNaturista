@@ -48,18 +48,20 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public')); // Sirve tu inventario.html
 
-// Obtener todos los productos
+// Obtener todos los productos (solo activos por defecto, ?inactivos=1 para incluirlos)
 app.get('/productos', async (req, res) => {
   try {
-    // Si hay cliente de Supabase, usarlo (permitir migración incremental)
+    const includeInactive = req.query.inactivos === '1';
     if (supabase) {
-      const { data, error } = await supabase.from('productos').select('*');
+      let builder = supabase.from('productos').select('*');
+      if (!includeInactive) builder = builder.eq('activo', true);
+      const { data, error } = await builder;
       if (error) throw error;
       return res.json(data);
     }
-
-    // Fallback a la DB local
-    const productos = await sql`SELECT * FROM productos`;
+    const productos = includeInactive
+      ? await sql`SELECT * FROM productos`
+      : await sql`SELECT * FROM productos WHERE activo = true`;
     res.json(productos);
   } catch (err) {
     console.error('Error al obtener productos:', err);
@@ -461,31 +463,86 @@ app.delete('/productos/:id', async (req, res) => {
   if (!idParam) return res.status(400).json({ error: 'id requerido en la ruta' });
 
   try {
-    // Determinar si es numérico
     const numericId = /^\d+$/.test(idParam) ? parseInt(idParam, 10) : null;
+    const filterVal = numericId !== null ? numericId : idParam;
 
+    // 1. Verificar si el producto está referenciado en detalle_ventas
+    let referencias = 0;
     if (supabase) {
-      // Intentar eliminar usando Supabase por la columna id_producto
-      const filterVal = numericId !== null ? numericId : idParam;
-      const { data, error } = await supabase.from('productos').delete().match({ id_producto: filterVal });
-      if (error) throw error;
-      console.log('DELETE via Supabase for id_producto=', filterVal, 'deleted=', data?.length ?? 0);
-      return res.json({ success: true, deleted: data?.length ?? 0 });
+      try {
+        const { count, error: cntErr } = await supabase
+          .from('detalle_ventas')
+          .select('id_detalle_venta', { count: 'exact', head: true })
+          .eq('id_producto', filterVal);
+        if (!cntErr && typeof count === 'number') referencias = count;
+      } catch (_) { referencias = 0; }
+    } else {
+      try {
+        const rows = await sql`SELECT COUNT(1)::int AS cnt FROM detalle_ventas WHERE id_producto = ${filterVal}`;
+        referencias = Array.isArray(rows) && rows.length ? rows[0].cnt : 0;
+      } catch (_) { referencias = 0; }
     }
 
-    // Fallback: eliminar en la DB local usando la columna id_producto (evitar referencia a 'id' inexistente)
-    let deletedRows = 0;
-    if (numericId !== null) {
-      const result = await sql`DELETE FROM productos WHERE id_producto = ${numericId} RETURNING id_producto`;
-      deletedRows = Array.isArray(result) ? result.length : 0;
-    } else {
-      const result = await sql`DELETE FROM productos WHERE id_producto = ${idParam} RETURNING id_producto`;
-      deletedRows = Array.isArray(result) ? result.length : 0;
+    // 2. Si hay referencias -> soft delete (activo = false)
+    if (referencias > 0) {
+      if (supabase) {
+        const { data, error: updErr } = await supabase
+          .from('productos')
+          .update({ activo: false })
+          .match({ id_producto: filterVal })
+          .select();
+        if (updErr) throw updErr;
+        return res.json({ success: true, softDeleted: true, ventasReferenciadas: referencias, message: 'Producto con ventas: marcado como inactivo.', updated: data?.length ?? 0 });
+      }
+      const upd = await sql`UPDATE productos SET activo = false WHERE id_producto = ${filterVal} RETURNING id_producto`;
+      return res.json({ success: true, softDeleted: true, ventasReferenciadas: referencias, updated: Array.isArray(upd) ? upd.length : 0, message: 'Producto con ventas: marcado como inactivo.' });
     }
-    console.log('DELETE SQL for id_producto=', idParam, 'deletedRows=', deletedRows);
-    res.json({ success: true, deleted: deletedRows });
+
+    // 3. No referenciado -> intentar eliminación física
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('productos').delete().match({ id_producto: filterVal });
+        if (error) throw error;
+        return res.json({ success: true, deleted: data?.length ?? 0, message: 'Producto eliminado.' });
+      } catch (delErr) {
+        const msg = String(delErr?.message || '').toLowerCase();
+        if (msg.includes('foreign key') || delErr?.code === '23503') {
+          // fallback soft delete
+            const { data: upd2, error: updErr2 } = await supabase
+              .from('productos')
+              .update({ activo: false })
+              .match({ id_producto: filterVal })
+              .select();
+            if (updErr2) return res.status(409).json({ error: 'producto_referenciado', detail: 'FK y no se pudo marcar inactivo', fk: true });
+            return res.json({ success: true, softDeleted: true, ventasReferenciadas: 'desconocido', message: 'Producto referenciado: marcado como inactivo.' });
+        }
+        throw delErr;
+      }
+    }
+
+    try {
+      const result = await sql`DELETE FROM productos WHERE id_producto = ${filterVal} RETURNING id_producto`;
+      const deleted = Array.isArray(result) ? result.length : 0;
+      return res.json({ success: true, deleted, message: 'Producto eliminado.' });
+    } catch (delSqlErr) {
+      const msg = String(delSqlErr?.message || '').toLowerCase();
+      if (msg.includes('foreign key') || delSqlErr?.code === '23503') {
+        // fallback soft delete
+        try {
+          const upd3 = await sql`UPDATE productos SET activo = false WHERE id_producto = ${filterVal} RETURNING id_producto`;
+          return res.json({ success: true, softDeleted: true, ventasReferenciadas: 'desconocido', updated: Array.isArray(upd3) ? upd3.length : 0, message: 'Producto referenciado: marcado como inactivo.' });
+        } catch (updFail) {
+          return res.status(409).json({ error: 'producto_referenciado', detail: 'FK y no se pudo marcar inactivo', fk: true });
+        }
+      }
+      throw delSqlErr;
+    }
   } catch (err) {
-    console.error('Error al eliminar producto:', err?.message ?? err, err?.stack ?? '');
+    console.error('Error al eliminar producto:', err?.message ?? err);
+    const msg = String(err?.message || '').toLowerCase();
+    if (msg.includes('foreign key') || err?.code === '23503') {
+      return res.status(409).json({ error: 'producto_referenciado', detail: 'Tiene ventas asociadas. Use desactivación.', fk: true });
+    }
     res.status(500).json({ error: 'Error al eliminar producto', detail: err?.message ?? String(err) });
   }
 });
