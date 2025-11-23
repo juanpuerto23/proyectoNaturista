@@ -11,8 +11,8 @@ dotenv.config();
 const app = express();
 const port = 3000;
 
-// Helper: verifica contraseñas en texto plano, Django pbkdf2_sha256 o bcrypt ($2b$...)
-function verifyPasswordHash(storedPassword, providedPassword) {
+// Helper: verifica contraseñas (bcrypt $2b$... o formato Django pbkdf2_sha256) o comparación directa legacy
+export function verifyPasswordHash(storedPassword, providedPassword) {
   if (!storedPassword) return false;
   // bcrypt-style: $2b$... (bcrypt)
   if (storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$') || storedPassword.startsWith('$2y$')) {
@@ -698,17 +698,84 @@ app.delete('/clientes/:id', async (req, res) => {
   if (!idParam) return res.status(400).json({ error: 'id requerido en la ruta' });
   try {
     const numericId = /^\d+$/.test(idParam) ? parseInt(idParam, 10) : idParam;
+
+    // 1. Verificar si el cliente tiene ventas asociadas
+    let ventasCount = 0;
     if (supabase) {
-      const { data, error } = await supabase.from('clientes').delete().match({ id_cliente: numericId });
-      if (error) throw error;
-      return res.json({ success: true, deleted: data?.length ?? 0 });
+      try {
+        const { count, error: ventasErr } = await supabase
+          .from('ventas')
+          .select('id_venta', { count: 'exact', head: true })
+          .eq('id_cliente', numericId);
+        if (!ventasErr && typeof count === 'number') ventasCount = count;
+      } catch (e) { /* ignorar y asumir 0 */ }
+    } else {
+      try {
+        const rows = await sql`SELECT COUNT(1)::int AS cnt FROM ventas WHERE id_cliente = ${numericId}`;
+        ventasCount = Array.isArray(rows) && rows.length ? rows[0].cnt : 0;
+      } catch (e) { ventasCount = 0; }
     }
 
-    const result = await sql`DELETE FROM clientes WHERE id_cliente = ${numericId} RETURNING id_cliente`;
-    const deleted = Array.isArray(result) ? result.length : 0;
-    return res.json({ success: true, deleted });
+    // 2. Si hay ventas, realizar "soft delete" (activo=false) en lugar de borrar
+    if (ventasCount > 0) {
+      if (supabase) {
+        const { data: upd, error: updErr } = await supabase
+          .from('clientes')
+          .update({ activo: false })
+          .match({ id_cliente: numericId })
+          .select();
+        if (updErr) throw updErr;
+        return res.json({ success: true, softDeleted: true, ventasReferenciadas: ventasCount, message: 'Cliente con ventas: marcado como inactivo.' });
+      }
+      const upd = await sql`UPDATE clientes SET activo = false WHERE id_cliente = ${numericId} RETURNING id_cliente`;
+      const updated = Array.isArray(upd) ? upd.length : 0;
+      return res.json({ success: true, softDeleted: true, ventasReferenciadas: ventasCount, updated, message: 'Cliente con ventas: marcado como inactivo.' });
+    }
+
+    // 3. No tiene ventas -> eliminar definitivo (si falla por FK, fallback soft delete)
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('clientes').delete().match({ id_cliente: numericId });
+        if (error) throw error;
+        return res.json({ success: true, deleted: data?.length ?? 0, message: 'Cliente eliminado.' });
+      } catch (delErr) {
+        const msgDel = String(delErr?.message || '').toLowerCase();
+        if (msgDel.includes('foreign key') || delErr?.code === '23503') {
+          // Realizar soft delete como fallback
+          const { data: upd2, error: updErr2 } = await supabase.from('clientes').update({ activo: false }).match({ id_cliente: numericId }).select();
+          if (updErr2) {
+            return res.status(409).json({ error: 'cliente_referenciado', detail: 'FK ventas y no se pudo marcar inactivo', fk: true });
+          }
+            return res.json({ success: true, softDeleted: true, ventasReferenciadas: 'desconocido', message: 'Cliente referenciado: marcado como inactivo.' });
+        }
+        throw delErr;
+      }
+    }
+    try {
+      const result = await sql`DELETE FROM clientes WHERE id_cliente = ${numericId} RETURNING id_cliente`;
+      const deleted = Array.isArray(result) ? result.length : 0;
+      return res.json({ success: true, deleted, message: 'Cliente eliminado.' });
+    } catch (delSqlErr) {
+      const msgDel = String(delSqlErr?.message || '').toLowerCase();
+      if (msgDel.includes('foreign key') || delSqlErr?.code === '23503') {
+        // fallback soft delete
+        try {
+          const upd3 = await sql`UPDATE clientes SET activo = false WHERE id_cliente = ${numericId} RETURNING id_cliente`;
+          const updated = Array.isArray(upd3) ? upd3.length : 0;
+          return res.json({ success: true, softDeleted: true, ventasReferenciadas: 'desconocido', updated, message: 'Cliente referenciado: marcado como inactivo.' });
+        } catch (updFail) {
+          return res.status(409).json({ error: 'cliente_referenciado', detail: 'FK ventas y no se pudo marcar inactivo', fk: true });
+        }
+      }
+      throw delSqlErr;
+    }
   } catch (err) {
     console.error('Error eliminando cliente:', err?.message ?? err);
+    // Si el error es violación de FK pero no se alcanzó soft delete, informar claramente
+    const msg = String(err?.message || '').toLowerCase();
+    if (msg.includes('foreign key') || err?.code === '23503') {
+      return res.status(409).json({ error: 'cliente_referenciado', detail: 'El cliente tiene ventas asociadas. Use desactivación (activo=false).', fk: true });
+    }
     res.status(500).json({ error: 'Error al eliminar cliente', detail: err?.message ?? String(err) });
   }
 });
@@ -784,9 +851,15 @@ app.patch('/productos/:id', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Servidor corriendo en http://localhost:${port}`);
-});
+// Exportar app para pruebas con supertest
+export { app };
+
+// Sólo iniciar el listener si no estamos en entorno de test
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(port, () => {
+    console.log(`Servidor corriendo en http://localhost:${port}`);
+  });
+}
 
 // RUTA ADMIN: sincronizar secuencias de tablas (solo para desarrollo)
 // Si se define ADMIN_SECRET en .env, la petición debe incluir header 'x-admin-secret'

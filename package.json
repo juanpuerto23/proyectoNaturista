@@ -1,8 +1,8 @@
 {
   "dependencies": {
     "@supabase/supabase-js": "^2.50.0",
-    "bootstrap": "^5.3.3",
     "bcrypt": "^5.1.0",
+    "bootstrap": "^5.3.3",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
@@ -14,11 +14,20 @@
   "main": "public/server.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-  "start": "node public/server.js"
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules NODE_ENV=test jest --runInBand",
+    "start": "node public/server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "supertest": "^6.3.4",
+    "cross-env": "^7.0.3"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {}
+  }
 }

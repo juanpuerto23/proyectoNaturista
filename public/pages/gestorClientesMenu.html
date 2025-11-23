@@ -41,11 +41,9 @@
                     <li class="nav-item mb-1"><a class="nav-link" href="../menu.html">Dashboard</a></li>
                     <li class="nav-item mb-1"><a class="nav-link" href="../pages/inventario.html">Inventario</a></li>
                     </li>
-                    <li class="nav-item mb-1"><a class="nav-link active" href="../pages/gestorClientesMenu.html">Gestor
-                            de
-                            Clientes</a></li>
+                    <li class="nav-item mb-1"><a class="nav-link active" href="../pages/gestorClientesMenu.html">Clientes</a></li>
                     <li class="nav-item mb-1"><a id="btnFacturasElectronicas" class="nav-link"
-                href="facturasElectronicas.html">Facturas Electrónicas</a></li>
+                href="facturasElectronicas.html">Ventas</a></li>
                     <li class="nav-item mb-1"><a class="nav-link" href="../pages/reportes.html">Reportes</a>
                 </ul>
             </aside>
@@ -276,14 +274,28 @@
                             return;
                         }
 
-                        // delete
+                        // delete (maneja soft delete si hay ventas referenciadas)
                         const id = btn.getAttribute('data-id');
                         if (!id) return;
                         if (!confirm(`¿Eliminar cliente con ID ${id}?`)) return;
                         try {
-                            await fetchJson(`/clientes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                            const resp = await fetchJson(`/clientes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                            if (resp.softDeleted) {
+                                alert(`Cliente tenía ventas asociadas. Se desactivó (activo = false).`);
+                            } else if (resp.deleted) {
+                                alert('Cliente eliminado definitivamente.');
+                            } else {
+                                alert(resp.message || 'Operación completada.');
+                            }
                             await cargarClientes();
-                        } catch (err) { console.error('Error borrando cliente', err); alert('Error al borrar cliente (ver consola)'); }
+                        } catch (err) {
+                            console.error('Error borrando cliente', err);
+                            if (err && err.status === 409 && err.body && err.body.error === 'cliente_referenciado') {
+                                alert('No se puede eliminar porque tiene ventas. Implementar desactivación desde backend.');
+                            } else {
+                                alert('Error al borrar cliente (ver consola)');
+                            }
+                        }
                     });
                 }
 
