@@ -1,0 +1,323 @@
+const tabla = document.querySelector('#tablaProductos tbody');
+const productosListEl = document.getElementById('productosList');
+let productosCache = [];
+let clientesCache = [];
+let clienteSeleccionado = null;
+
+async function loadInitialData() {
+    try {
+        const [pRes, cRes] = await Promise.all([
+            fetch('/productos').then(r => r.ok ? r.json() : []),
+            fetch('/clientes').then(r => r.ok ? r.json() : [])
+        ]);
+        productosCache = Array.isArray(pRes) ? pRes : [];
+        clientesCache = Array.isArray(cRes) ? cRes : [];
+        populateProductosDatalist();
+    } catch (err) {
+        console.warn('No se pudieron cargar productos/clientes:', err);
+    }
+}
+
+function populateProductosDatalist() {
+    productosListEl.innerHTML = '';
+    productosCache.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.nombre_producto || p.nombre || '';
+        opt.dataset.id = p.id_producto || p.id || '';
+        opt.dataset.stock = p.stock_actual || 0;
+        opt.dataset.precio = p.precio_venta || p.precio || 0;
+        productosListEl.appendChild(opt);
+    });
+}
+
+// Eventos de tabla
+tabla.addEventListener('input', e => {
+    const fila = e.target.closest('tr');
+    if (!fila) return;
+    // si cambió el nombre, intentar autocompletar id/precio
+    if (e.target.classList.contains('nombre')) onNombreChange(fila);
+    actualizarFila(fila);
+
+    // Sólo agregar una nueva fila si estamos editando la última fila
+    // y ésta tiene los campos requeridos válidos (producto seleccionado, cantidad entero > 0, precio >= 0)
+    const lastRow = tabla.rows[tabla.rows.length - 1];
+    if (fila === lastRow) {
+        const idProd = fila.querySelector('.idProducto')?.value?.trim();
+        const cantidadRaw = fila.querySelector('.cantidad')?.value;
+        const precioRaw = fila.querySelector('.precioUnitario')?.value;
+        const cantidadVal = cantidadRaw === undefined || cantidadRaw === '' ? NaN : parseInt(cantidadRaw, 10);
+        const precioVal = precioRaw === undefined || precioRaw === '' ? NaN : parseFloat(precioRaw);
+        const validCantidad = Number.isInteger(cantidadVal) && cantidadVal > 0;
+        const validPrecio = !isNaN(precioVal) && precioVal >= 0;
+        if (idProd && validCantidad && validPrecio) agregarFila();
+    }
+
+    calcularTotales();
+});
+
+function onNombreChange(fila) {
+    const nombre = fila.querySelector('.nombre')?.value || '';
+    const match = productosCache.find(p => String(p.nombre_producto || p.nombre || '').toLowerCase() === nombre.toLowerCase());
+    if (match) {
+        fila.querySelector('.idProducto').value = match.id_producto || match.id || '';
+        fila.querySelector('.precioUnitario').value = match.precio_venta || match.precio || 0;
+        fila.dataset.stock = match.stock_actual || 0;
+    } else {
+        fila.querySelector('.idProducto').value = '';
+        fila.dataset.stock = '';
+    }
+}
+
+function agregarFila() {
+    // clone the last row to preserve structure and listeners
+    const source = tabla.rows[tabla.rows.length - 1] || tabla.rows[0];
+    const filaNueva = source.cloneNode(true);
+    filaNueva.querySelectorAll('input').forEach(i => {
+        i.value = '';
+        // ensure proper min/step attributes remain
+        if (i.classList.contains('cantidad')) {
+            i.min = '1';
+            i.step = '1';
+        }
+        if (i.classList.contains('precioUnitario')) {
+            i.min = '0';
+            i.step = '0.01';
+        }
+        if (i.classList.contains('descuento') || i.classList.contains('iva')) {
+            i.min = '0';
+            i.step = '0.01';
+        }
+    });
+    // show delete button on new rows (first row keeps it hidden)
+    const delBtn = filaNueva.querySelector('button');
+    if (delBtn) delBtn.classList.remove('d-none');
+    tabla.appendChild(filaNueva);
+}
+
+function eliminarFila(btn) {
+    if (tabla.rows.length > 1) btn.closest('tr').remove();
+    calcularTotales();
+}
+
+function actualizarFila(fila) {
+    // coerce and clamp values to avoid negatives and force integer quantities
+    const rawP = fila.querySelector('.precioUnitario')?.value;
+    const rawC = fila.querySelector('.cantidad')?.value;
+    const rawD = fila.querySelector('.descuento')?.value;
+    const rawI = fila.querySelector('.iva')?.value;
+    const p = Math.max(0, isNaN(parseFloat(rawP)) ? 0 : parseFloat(rawP));
+    const c = Math.max(0, Number.isInteger(parseInt(rawC, 10)) ? parseInt(rawC, 10) : (isNaN(Number(rawC)) ? 0 : Math.floor(Number(rawC))));
+    const d = Math.max(0, isNaN(parseFloat(rawD)) ? 0 : parseFloat(rawD));
+    const i = Math.max(0, isNaN(parseFloat(rawI)) ? 0 : parseFloat(rawI));
+    const subtotal = p * c;
+    const descuento = subtotal * (d / 100);
+    const iva = (subtotal - descuento) * (i / 100);
+    const totalFila = subtotal - descuento + iva;
+    fila.querySelector('.valorTotal').value = totalFila.toFixed(2);
+    const btn = fila.querySelector('button');
+    if (btn) btn.classList.toggle('d-none', subtotal === 0);
+}
+
+function calcularTotales() {
+    let subtotal = 0, descuento = 0, iva = 0;
+    tabla.querySelectorAll('tr').forEach(fila => {
+        const p = parseFloat(fila.querySelector('.precioUnitario')?.value) || 0;
+        const c = parseFloat(fila.querySelector('.cantidad')?.value) || 0;
+        const d = parseFloat(fila.querySelector('.descuento')?.value) || 0;
+        const i = parseFloat(fila.querySelector('.iva')?.value) || 0;
+        const sub = p * c;
+        subtotal += sub;
+        descuento += sub * (d / 100);
+        iva += (sub - sub * (d / 100)) * (i / 100);
+    });
+    const totalFinal = subtotal - descuento + iva;
+
+    document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+    document.getElementById('iva').textContent = `$${iva.toFixed(2)}`;
+    document.getElementById('descuento').textContent = `$${descuento.toFixed(2)}`;
+    document.getElementById('totalFinal').textContent = `$${totalFinal.toFixed(2)}`;
+    return { subtotal, descuento, iva, totalFinal };
+}
+
+// Buscar cliente por número de identificación (usa cache cargada inicialmente)
+document.getElementById('btnBuscarCliente').addEventListener('click', () => {
+    const num = document.getElementById('numeroIdentificacion').value.trim();
+    if (!num) return alert('Ingrese número de identificación');
+    const found = clientesCache.find(c => String(c.numero_identificacion || '') === num);
+    if (found) {
+        clienteSeleccionado = found;
+        document.getElementById('nombreCompleto').value = found.nombre_completo || '';
+        document.getElementById('emailCliente').value = found.email || '';
+        document.getElementById('tipoDocumento').value = found.tipo_identificacion || 'CC';
+        document.getElementById('clienteInfo').textContent = `Cliente encontrado: id=${found.id_cliente}`;
+    } else {
+        clienteSeleccionado = null;
+        document.getElementById('clienteInfo').textContent = 'Cliente no encontrado. Se creará uno nuevo al generar la factura.';
+    }
+});
+
+// Obtener usuario actual (intentar varias fuentes)
+function getCurrentUser() {
+    try {
+        const winUser = window.currentUser || window.user || null;
+        if (winUser) return winUser;
+        const keys = ['user', 'currentUser', 'usuario', 'authUser'];
+        for (const k of keys) {
+            const s = sessionStorage.getItem(k) || localStorage.getItem(k);
+            if (!s) continue;
+            try { return JSON.parse(s); } catch (e) { }
+        }
+        const cookieMatch = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('user='));
+        if (cookieMatch) {
+            const val = decodeURIComponent(cookieMatch.split('=')[1] || '');
+            try { return JSON.parse(val); } catch (e) { }
+        }
+    } catch (err) { console.warn('getCurrentUser error', err); }
+    return null;
+}
+
+// Generar factura -> crear cliente si necesario, luego POST /ventas
+document.getElementById('btnGenerar').addEventListener('click', async () => {
+    try {
+        // armado de detalles
+        const rows = Array.from(tabla.querySelectorAll('tr'));
+        const detalles = [];
+        for (const fila of rows) {
+            const idProducto = fila.querySelector('.idProducto')?.value || '';
+            const cantidad = Number(fila.querySelector('.cantidad')?.value || 0);
+            const precio = Number(fila.querySelector('.precioUnitario')?.value || 0);
+            const descuento = Number(fila.querySelector('.descuento')?.value || 0);
+            const iva = Number(fila.querySelector('.iva')?.value || 0);
+            const subtotal_detalle = Number(fila.querySelector('.valorTotal')?.value || 0);
+            if (!idProducto && (fila.querySelector('.nombre')?.value || '').trim() === '') continue; // fila vacía
+            if (!idProducto) return alert('Debe seleccionar productos válidos desde la lista (coincidir nombre exacto)');
+            if (cantidad <= 0) return alert('Cantidad debe ser mayor a 0');
+            detalles.push({ id_producto: Number(idProducto), cantidad, precio_unitario: precio, descuento_detalle: descuento, subtotal_detalle });
+        }
+        if (detalles.length === 0) return alert('Agregue al menos un producto con cantidad > 0');
+
+        // cliente: si no existe, crearlo
+        let idCliente = clienteSeleccionado ? clienteSeleccionado.id_cliente : null;
+        if (!idCliente) {
+            const clientePayload = {
+                nombre_completo: document.getElementById('nombreCompleto').value || 'Cliente ocasional',
+                tipo_identificacion: document.getElementById('tipoDocumento').value || null,
+                numero_identificacion: document.getElementById('numeroIdentificacion').value || null,
+                email: document.getElementById('emailCliente').value || null,
+            };
+            // crear cliente
+            const resp = await fetch('/clientes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(clientePayload) });
+            if (resp.status === 409) {
+                const body = await resp.json();
+                if (body && body.existing) {
+                    idCliente = body.existing.id_cliente;
+                } else if (body && body.detail) {
+                    // intentar recargar lista y buscar por numero
+                    await loadInitialData();
+                    const found = clientesCache.find(c => String(c.numero_identificacion || '') === String(clientePayload.numero_identificacion || ''));
+                    if (found) idCliente = found.id_cliente;
+                }
+            } else if (resp.ok) {
+                const created = await resp.json();
+                idCliente = created && created.row ? created.row.id_cliente : (created && created.success && created.row && created.row.id_cliente ? created.row.id_cliente : null);
+            } else {
+                const txt = await resp.text();
+                return alert('Error creando cliente: ' + txt);
+            }
+            if (!idCliente) return alert('No se pudo obtener id del cliente');
+        }
+
+        const tot = calcularTotales();
+        const currentUser = getCurrentUser();
+        const ventaPayload = {
+            id_cliente: idCliente,
+            id_empleado: (currentUser && (currentUser.id_usuario || currentUser.id)) && String((currentUser.rol || currentUser.role || '').toLowerCase()) === 'empleado' ? (currentUser.id_usuario || currentUser.id) : null,
+            subtotal: tot.subtotal,
+            descuento_porcentaje: 0,
+            descuento_valor: tot.descuento,
+            iva_porcentaje: 0,
+            iva_valor: tot.iva,
+            total_pagar: tot.totalFinal,
+            observaciones: null,
+            detalles
+        };
+
+        const ventasResp = await fetch('/ventas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ventaPayload) });
+        // Leer body UNA sola vez y reutilizarlo para evitar 'body stream already read'
+        let ventasBody = null;
+        try {
+            const ct = ventasResp.headers.get('content-type') || '';
+            if (ct.includes('application/json')) ventasBody = await ventasResp.json();
+            else ventasBody = await ventasResp.text();
+        } catch (e) {
+            ventasBody = null;
+        }
+
+        if (ventasResp.status === 409) {
+            if (ventasBody && ventasBody.error === 'stock_insuficiente') {
+                return alert(`Stock insuficiente para producto id=${ventasBody.id_producto}. Disponible: ${ventasBody.disponible}`);
+            }
+            return alert('Error al crear venta: ' + (typeof ventasBody === 'string' ? ventasBody : JSON.stringify(ventasBody)));
+        }
+        if (!ventasResp.ok) {
+            return alert('Error al crear venta: ' + (typeof ventasBody === 'string' ? ventasBody : JSON.stringify(ventasBody)));
+        }
+        const ventaResult = (ventasBody && typeof ventasBody === 'object') ? ventasBody : (ventasBody ? JSON.parse(ventasBody) : {});
+        alert('Venta creada correctamente. ID: ' + (ventaResult.venta_id || (ventaResult.venta && ventaResult.venta.id_venta) || 'N/A'));
+        location.reload();
+    } catch (err) {
+        console.error('Error generando factura:', err);
+        alert('Error generando factura: ' + (err.message || err));
+    }
+});
+
+function detectIsAdmin() {
+    try {
+        // 1) window.currentUser
+        const winUser = window.currentUser || window.user || null;
+        if (winUser && (winUser.rol || winUser.role)) {
+            const r = String(winUser.rol || winUser.role || '').toLowerCase();
+            return r === 'admin' || r === 'administrator';
+        }
+
+        // 2) sessionStorage/localStorage common keys
+        const keys = ['user', 'currentUser', 'usuario', 'authUser'];
+        for (const k of keys) {
+            const s = sessionStorage.getItem(k) || localStorage.getItem(k);
+            if (!s) continue;
+            try {
+                const obj = JSON.parse(s);
+                const r = String(obj && (obj.rol || obj.role || obj.role_name || obj.roleName) || '').toLowerCase();
+                if (r === 'admin' || r === 'administrator') return true;
+            } catch (e) {
+                // ignore parse errors
+            }
+        }
+
+        // 3) cookie named 'user' (JSON)
+        const cookieMatch = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('user='));
+        if (cookieMatch) {
+            const val = decodeURIComponent(cookieMatch.split('=')[1] || '');
+            try {
+                const obj = JSON.parse(val);
+                const r = String(obj && (obj.rol || obj.role) || '').toLowerCase();
+                if (r === 'admin' || r === 'administrator') return true;
+            } catch (e) { }
+        }
+
+    } catch (err) {
+        console.warn('detectIsAdmin error', err);
+    }
+    return false;
+}
+
+// inicializar
+loadInitialData().then(() => {
+    const isAdmin = detectIsAdmin();
+    const infoEl = document.getElementById('clienteInfo');
+    if (isAdmin) {
+        infoEl.style.display = '';
+    } else {
+        infoEl.style.display = 'none';
+    }
+});

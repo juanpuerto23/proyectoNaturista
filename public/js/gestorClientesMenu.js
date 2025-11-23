@@ -1,0 +1,296 @@
+document.addEventListener('DOMContentLoaded', () => {
+    const tbody = document.getElementById('tablaClientes');
+    const form = document.getElementById('formCliente');
+    const field = (name) => form ? form.querySelector(`[name="${name}"]`) : null;
+    const modalEl = document.getElementById('modalAgregarCliente');
+    const modalInstance = () => bootstrap.Modal.getOrCreateInstance(modalEl);
+
+    async function fetchJson(url, options) {
+        const res = await fetch(url, options);
+        const ct = res.headers.get('content-type') || '';
+        let body = null;
+        try { body = ct.includes('application/json') ? await res.json() : await res.text(); } catch (e) { body = null; }
+        if (!res.ok) throw { status: res.status, body };
+        return body;
+    }
+
+    async function cargarClientes() {
+        try {
+            const data = await fetchJson('/clientes');
+            renderClientes(Array.isArray(data) ? data : []);
+        } catch (err) {
+            console.error('Error cargando clientes', err);
+            if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No se pudieron cargar clientes</td></tr>';
+        }
+    }
+
+    function formatDate(d) {
+        if (!d) return '';
+        try {
+            const dt = new Date(d);
+            if (isNaN(dt)) return d;
+            return dt.toISOString().slice(0, 10);
+        } catch (e) { return d; }
+    }
+
+    function renderClientes(list) {
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        if (!Array.isArray(list) || list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin clientes</td></tr>';
+            return;
+        }
+        list.forEach(c => {
+            const id = c.id_cliente ?? c.id ?? '';
+            const nombre = c.nombre_completo ?? '';
+            const telefono = c.telefono ?? '';
+            const email = c.email ?? '';
+            const fn = formatDate(c.fecha_nacimiento ?? '');
+
+            tbody.insertAdjacentHTML('beforeend', `
+                            <tr data-id="${id}">
+                                <td><input type="checkbox" data-id="${id}"></td>
+                                <td class="client-name">${escapeHtml(nombre)}</td>
+                                <td>${escapeHtml(telefono)}</td>
+                                <td>${escapeHtml(email)}</td>
+                                <td>${escapeHtml(fn)}</td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm" data-edit-id="${id}" title="Editar" aria-label="Editar" style="min-width:44px; padding:6px 8px; background:#e9f7ec; color:#0f5132; border:1px solid #c7ecc7;">
+                                        <span style="font-size:14px; line-height:1">✏️</span>
+                                    </button>
+                                    <button class="btn btn-sm" data-id="${id}" title="Eliminar" aria-label="Eliminar" style="min-width:44px; padding:6px 8px; margin-left:6px; background:#ffecec; color:#842029; border:1px solid #f5c2c7;">
+                                        <span style="font-size:14px; line-height:1">🗑️</span>
+                                    </button>
+                                </td>
+                            </tr>
+                        `);
+        });
+    }
+
+    function escapeHtml(s) { if (s === null || s === undefined) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    // delegated actions: edit / delete
+    if (tbody) {
+        tbody.addEventListener('click', async (ev) => {
+            const btn = ev.target.closest('button[data-id], button[data-edit-id]');
+            if (!btn) return;
+            const editId = btn.getAttribute('data-edit-id');
+            if (editId) {
+                // fetch single cliente (or reuse cached list by calling GET /clientes and finding)
+                try {
+                    const all = await fetchJson('/clientes');
+                    const cliente = (Array.isArray(all) ? all.find(x => String(x.id_cliente ?? x.id ?? '') === String(editId)) : null) || null;
+                    if (!cliente) return alert('Cliente no encontrado');
+                    // fill form (robusto: buscar campos por name)
+                    const fNombre = field('nombre_completo'); if (fNombre) fNombre.value = cliente.nombre_completo ?? '';
+                    const fTipo = field('tipo_id'); if (fTipo) fTipo.value = cliente.tipo_identificacion ?? '';
+                    const fNum = field('numero_id'); if (fNum) fNum.value = cliente.numero_identificacion ?? '';
+                    const fTel = field('telefono'); if (fTel) fTel.value = cliente.telefono ?? '';
+                    const fEmail = field('email'); if (fEmail) fEmail.value = cliente.email ?? '';
+                    const fDir = field('direccion'); if (fDir) fDir.value = cliente.direccion ?? '';
+                    const fFn = field('fecha_nacimiento'); if (fFn) fFn.value = formatDate(cliente.fecha_nacimiento ?? '');
+                    const fActivo = field('activo'); if (fActivo) fActivo.checked = !!cliente.activo;
+
+                    // mark edit mode
+                    try { modalEl.dataset.editId = String(editId); } catch (e) { }
+                    modalEl.querySelector('.modal-title') && (modalEl.querySelector('.modal-title').textContent = 'Editar Cliente');
+                    // show modal
+                    modalInstance().show();
+                } catch (err) { console.error('Error al cargar cliente para editar', err); alert('Error al preparar edición (ver consola)'); }
+                return;
+            }
+
+            // delete (maneja soft delete si hay ventas referenciadas)
+            const id = btn.getAttribute('data-id');
+            if (!id) return;
+            if (!confirm(`¿Eliminar cliente con ID ${id}?`)) return;
+            try {
+                const resp = await fetchJson(`/clientes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                if (resp.softDeleted) {
+                    alert(`Cliente tenía ventas asociadas. Se desactivó (activo = false).`);
+                } else if (resp.deleted) {
+                    alert('Cliente eliminado definitivamente.');
+                } else {
+                    alert(resp.message || 'Operación completada.');
+                }
+                await cargarClientes();
+            } catch (err) {
+                console.error('Error borrando cliente', err);
+                if (err && err.status === 409 && err.body && err.body.error === 'cliente_referenciado') {
+                    alert('No se puede eliminar porque tiene ventas. Implementar desactivación desde backend.');
+                } else {
+                    alert('Error al borrar cliente (ver consola)');
+                }
+            }
+        });
+    }
+
+    // selection: checkbox change or row click (outside buttons) -> load client details
+    let selectedClientId = null;
+
+    async function loadClientDetails(clientId) {
+        if (!clientId) return;
+        try {
+            // fetch ventas and normalize
+            let ventasRaw = [];
+            try {
+                const vResp = await fetch('/ventas');
+                if (vResp.ok) ventasRaw = await vResp.json();
+            } catch (e) { /* ignore */ }
+
+            // normalize ventas array
+            let ventas = [];
+            if (Array.isArray(ventasRaw)) ventas = ventasRaw;
+            else if (ventasRaw && Array.isArray(ventasRaw.rows)) ventas = ventasRaw.rows;
+            else if (ventasRaw && Array.isArray(ventasRaw.data)) ventas = ventasRaw.data;
+
+            // filter ventas del cliente
+            const misVentas = ventas.filter(v => String(v.id_cliente ?? v.idCliente ?? v.cliente_id ?? '') === String(clientId));
+            const totalCompras = misVentas.length;
+            let totalGastado = 0;
+            let ultimaCompra = null;
+            const productoCount = Object.create(null);
+
+            for (const v of misVentas) {
+                const t = Number(v.total_pagar ?? v.total ?? v.total_pv ?? 0) || 0;
+                totalGastado += t;
+                const fecha = v.fecha_venta || v.fecha || v.created_at || v.createdAt || null;
+                if (fecha) {
+                    const d = new Date(fecha);
+                    if (!isNaN(d.getTime())) {
+                        if (!ultimaCompra || d.getTime() > ultimaCompra.getTime()) ultimaCompra = d;
+                    }
+                }
+                // intentar leer detalles si vienen embebidos
+                const detalles = v.detalles || v.detalle_ventas || v.items || v.items_venta || null;
+                if (Array.isArray(detalles)) {
+                    for (const it of detalles) {
+                        const pid = it.id_producto ?? it.idProducto ?? it.producto_id ?? it.product_id ?? it.id ?? null;
+                        if (!pid) continue;
+                        productoCount[String(pid)] = (productoCount[String(pid)] || 0) + (Number(it.cantidad ?? it.qty ?? it.quantity ?? 1) || 1);
+                    }
+                }
+            }
+
+            // determinar producto favorito si hay datos
+            let productoFavorito = '-';
+            const entries = Object.entries(productoCount);
+            if (entries.length) {
+                entries.sort((a, b) => b[1] - a[1]);
+                const topId = entries[0][0];
+                // intentar buscar nombre desde API clientes/productos cache
+                try {
+                    const prodResp = await fetch('/productos');
+                    if (prodResp.ok) {
+                        const prods = await prodResp.json();
+                        const found = (Array.isArray(prods) ? prods : (prods && prods.rows ? prods.rows : [])).find(p => String(p.id_producto ?? p.id ?? '') === String(topId));
+                        if (found) productoFavorito = found.nombre_producto ?? found.nombre ?? String(topId);
+                        else productoFavorito = String(topId);
+                    } else {
+                        productoFavorito = String(topId);
+                    }
+                } catch (e) { productoFavorito = String(topId); }
+            }
+
+            document.getElementById('infoTotalCompras').textContent = String(totalCompras);
+            document.getElementById('infoTotalGastado').textContent = '$' + (totalGastado.toFixed ? totalGastado.toFixed(2) : Number(totalGastado).toFixed(2));
+            document.getElementById('infoUltimaCompra').textContent = ultimaCompra ? ultimaCompra.toISOString().slice(0, 10) : '-';
+            document.getElementById('infoProductoFavorito').textContent = productoFavorito;
+        } catch (err) {
+            console.error('Error cargando detalles cliente', err);
+        }
+    }
+
+    // checkbox change -> select client
+    tbody.addEventListener('change', (ev) => {
+        const cb = ev.target.closest('input[type="checkbox"][data-id]');
+        if (!cb) return;
+        const id = cb.getAttribute('data-id');
+        // uncheck others
+        tbody.querySelectorAll('input[type="checkbox"][data-id]').forEach(other => { if (other !== cb) other.checked = false; });
+        // highlight row
+        tbody.querySelectorAll('tr').forEach(r => r.classList.toggle('table-active', String(r.dataset.id) === String(id)));
+        selectedClientId = id;
+        loadClientDetails(id);
+    });
+
+    // click on row (except buttons) toggles selection
+    tbody.addEventListener('click', (ev) => {
+        const btn = ev.target.closest('button');
+        if (btn) return; // handled elsewhere
+        const row = ev.target.closest('tr[data-id]');
+        if (!row) return;
+        const id = row.getAttribute('data-id');
+        const cb = row.querySelector('input[type="checkbox"][data-id]');
+        if (cb) {
+            cb.checked = true;
+            // trigger change handler manually
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+
+    // form submit -> create or update
+    form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const getVal = (n) => (field(n) ? (field(n).value ?? '').trim() : '');
+        const payload = {
+            nombre_completo: getVal('nombre_completo'),
+            tipo_identificacion: (field('tipo_id') ? field('tipo_id').value : null) || null,
+            numero_identificacion: getVal('numero_id') || null,
+            telefono: getVal('telefono') || null,
+            email: getVal('email') || null,
+            direccion: getVal('direccion') || null,
+            fecha_nacimiento: (field('fecha_nacimiento') ? field('fecha_nacimiento').value : null) || null,
+            activo: !!(field('activo') ? field('activo').checked : false)
+        };
+
+        const editId = modalEl.dataset?.editId ?? null;
+        try {
+            if (editId) {
+                // PATCH
+                await fetchJson(`/clientes/${encodeURIComponent(editId)}`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                });
+                modalInstance().hide();
+                try { delete modalEl.dataset.editId; } catch (e) { }
+            } else {
+                // POST
+                await fetchJson('/clientes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                modalInstance().hide();
+                form.reset();
+            }
+            await cargarClientes();
+        } catch (err) { console.error('Error guardando cliente', err); alert('Error al guardar cliente (ver consola)'); }
+    });
+
+    // limpiar modal al ocultar
+    modalEl.addEventListener('hidden.bs.modal', () => {
+        try { delete modalEl.dataset.editId; } catch (e) { }
+        form.reset();
+        try { modalEl.querySelector('.modal-title').textContent = 'Nuevo Cliente'; } catch (e) { }
+    });
+
+    // inicial
+    cargarClientes().then(() => {
+        try {
+            const sel = localStorage.getItem('selectedClientId');
+            if (sel) {
+                // intentar seleccionar el cliente en la tabla
+                const cb = document.querySelector(`#tablaClientes input[type="checkbox"][data-id="${sel}"]`);
+                if (cb) {
+                    cb.checked = true;
+                    cb.dispatchEvent(new Event('change', { bubbles: true }));
+                } else {
+                    // intentar seleccionar por fila data-id
+                    const row = document.querySelector(`#tablaClientes tr[data-id="${sel}"]`);
+                    if (row) {
+                        row.classList.add('table-active');
+                        const cb2 = row.querySelector('input[type="checkbox"][data-id]');
+                        if (cb2) { cb2.checked = true; cb2.dispatchEvent(new Event('change', { bubbles: true })); }
+                    }
+                }
+                localStorage.removeItem('selectedClientId');
+            }
+        } catch (e) { /* ignore */ }
+    });
+});
