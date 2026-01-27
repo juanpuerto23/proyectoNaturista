@@ -221,6 +221,17 @@ h3 {
     box-shadow: none;
     margin-top: 1rem;
   }
+#sidebar.offcanvas {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+    visibility: visible !important;
+    width: 260px !important;
+    height: 100vh !important;
+    z-index: 1045 !important;
+    overflow-y: auto !important;
+  }
 
   main {
     padding-right: 0 !important;

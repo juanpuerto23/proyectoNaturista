@@ -244,6 +244,10 @@ input:focus, select:focus, textarea:focus {
   background: var(--verde-oscuro);
 }
 
+#btnBuscarCliente{
+  transform: translateY(-10px);
+}
+
 /* BUTTON outline */
 .btn-delete {
   background-color: #e53935;
@@ -299,3 +303,5 @@ td.text-center {
   .billing-panel{ order: 1; }
   .info-section{ grid-template-columns: 1fr; }
 }
+
+

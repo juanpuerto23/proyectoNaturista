@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HerbalSys - Facturación Electrónica</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/styleBill.css">
 </head>
 
@@ -29,6 +30,7 @@
                 <li class="nav-item mb-1"><a href="inventario.html" class="nav-link">Inventario</a></li>
                 <li class="nav-item mb-1"><a href="gestorClientesMenu.html" class="nav-link">Clientes</a></li>
                 <li class="nav-item mb-1"><a href="facturasElectronicas.html" class="nav-link active">Ventas</a></li>
+                <li class="nav-item mb-1"><a href="historial.html" class="nav-link">Historial</a></li>
                 <li class="nav-item mb-1"><a href="reportes.html" class="nav-link">Reportes</a></li>
             </ul>
         </div>
@@ -37,7 +39,7 @@
     <!-- CONTENIDO PRINCIPAL -->
     <div class="main-content">
         <main class="billing-panel fw-bold">
-            <h2>Sistema de Facturación Electrónica</h2>
+            <h2>Sistema de Facturación</h2>
 
             <!-- Información del Cliente -->
             <div class="container-fluid bg-light p-3 rounded mb-4">
@@ -61,11 +63,11 @@
                         <input id="nombreCompleto" name="nombre_completo" type="text" placeholder="Nombre">
                     </div>
                     <div class="col-md-3">
-                        <label>Email</label>
-                        <input id="emailCliente" name="email" type="email" placeholder="Correo electrónico">
+                        <label>Telefono</label>
+                        <input id="telefonoCliente" name="telefono" type="tel" placeholder="Número de teléfono">
                     </div>
-                    <div class="col-md-2 d-flex">
-                        <button id="btnBuscarCliente" type="button" class="btn-success" style="height:38px; margin-top:24px;">Buscar</button>
+                    <div class="col-md-2 d-grid">
+                        <button id="btnBuscarCliente" type="button" class="btn btn-success">Buscar</button>
                     </div>
                 </form>
                 <small id="clienteInfo" class="text-muted" style="display:none"></small>
@@ -76,6 +78,7 @@
                 <table id="tablaProductos">
                     <thead>
                         <tr>
+                            <th>Código</th>
                             <th>Nombre</th>
                             <th>Precio Unidad</th>
                             <th>Cantidad</th>
@@ -88,14 +91,17 @@
                     <tbody>
                         <tr>
                             <td>
-                                <input type="text" class="nombre" placeholder="Nombre" list="productosList">
+                                <input type="text" class="codigo form-control" placeholder="Escanear código" autocomplete="off">
                                 <input type="hidden" class="idProducto">
                             </td>
-                            <td><input type="number" class="precioUnitario" placeholder="0" min="0" step="0.01"></td>
-                            <td><input type="number" class="cantidad" placeholder="0" min="1" step="1"></td>
-                            <td><input type="number" class="descuento" placeholder="0" min="0" step="0.01"></td>
-                            <td><input type="number" class="iva" placeholder="0" min="0" step="0.01"></td>
-                            <td><input type="text" class="valorTotal" readonly></td>
+                            <td>
+                                <input type="text" class="nombre form-control" placeholder="Nombre" list="productosList" readonly>
+                            </td>
+                            <td><input type="number" class="precioUnitario form-control" placeholder="0" min="0" step="0.01" readonly></td>
+                            <td><input type="number" class="cantidad form-control" placeholder="0" min="1" step="1"></td>
+                            <td><input type="number" class="descuento form-control" placeholder="0" min="0" step="0.01"></td>
+                            <td><input type="number" class="iva form-control" placeholder="0" min="0" step="0.01"></td>
+                            <td><input type="text" class="valorTotal form-control" readonly></td>
                             <td class="text-center">
                                 <button class="btn-delete d-none" onclick="eliminarFila(this)">Eliminar</button>
                             </td>
@@ -111,7 +117,6 @@
             <div class="summary-content">
                 <h4>Resumen de Factura</h4>
                 <div class="summary-item">Subtotal: <span id="subtotal">$0.00</span></div>
-                <div class="summary-item">IVA: <span id="iva">$0.00</span></div>
                 <div class="summary-item">Descuento: <span id="descuento">$0.00</span></div>
                 <hr>
                 <div class="summary-item total">Total: <span id="totalFinal">$0.00</span></div>
@@ -119,6 +124,65 @@
             <button id="btnGenerar" class="btn-success">Generar Factura</button>
         </div>
     </div>
+        <!-- Modal: Selección método de pago y empleado -->
+        <div class="modal fade" id="modalPagoEmpleado" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-sm modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Método de pago y empleado</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Método de pago</label>
+                            <select id="selectMetodoPago" class="form-select"></select>
+                        </div>
+                        <div class="mb-3 d-none" id="grupoEfectivo">
+                            <label class="form-label">Valor con el que paga</label>
+                            <input type="number" id="valorPagado" class="form-control" min="0" step="0.01" placeholder="Ej: 50000">
+                            <small class="text-muted">
+                                Cambio: <strong id="textoCambio">$0.00</strong>
+                            </small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Empleado que atiende</label>
+                            <select id="selectEmpleado" class="form-select"></select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button id="btnConfirmVenta" type="button" class="btn btn-success">Confirmar y generar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal fade" id="modalCopias" tabindex="-1">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">Imprimir factura</h5>
+            <button type="button"
+                class="btn-close"
+                data-bs-dismiss="modal"
+                aria-label="Cerrar"
+                style="filter: grayscale(100%); opacity: 0.6;">
+            </button>
+        </div>
+        <div class="modal-body text-center">
+            <p>Seleccione las copias a imprimir</p>
+            <button id="btnCopiaCliente" class="btn btn-outline-success w-100 mb-2">
+            Copia Cliente
+            </button>
+            </button>
+            <button id="btnCopiaComercio" class="btn btn-outline-primary w-100">
+            Copia Comercio
+            </button>
+        </div>
+        </div>
+    </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../js/facturaBuilder.js" type="module"></script>
     <script src="../js/facturasElectronicas.js" type="module"></script>
 </body>
 

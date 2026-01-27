@@ -63,6 +63,7 @@
                 href="pages/gestorClientesMenu.html">Clientes</a></li>
             <li class="nav-item mb-1"><a id="btnFacturasElectronicas" class="nav-link"
                 href="pages/facturasElectronicas.html">Ventas</a></li>
+            <li class="nav-item mb-1"><a id="btnHistorial" class="nav-link" href="pages/historial.html">Historial</a></li>
             <li class="nav-item mb-1"><a id="btnLibroVentas" class="nav-link" href="pages/reportes.html">Reportes</a>
             </li>    
           </ul>
@@ -85,6 +86,7 @@
             <li class="nav-item mb-1"><a class="nav-link" href="pages/inventario.html">Inventario</a></li>
             <li class="nav-item mb-1"><a class="nav-link" href="pages/gestorClientesMenu.html">Gestor de Clientes</a></li>
             <li class="nav-item mb-1"><a class="nav-link" href="pages/facturasElectronicas.html">Facturas Electrónicas</a></li>
+            <li class="nav-item mb-1"><a class="nav-link" href="pages/historial.html">Historial</a></li>
             <li class="nav-item mb-1"><a class="nav-link" href="pages/reportes.html">Reportes</a></li>
           </ul>
         </div>
@@ -210,40 +212,40 @@
 
               <!-- COLUMNA DERECHA: alertas y clientes -->
               <div class="col-xl-4">
-                <div class="card shadow-sm mb-3 card-report">
-                  <div class="card-body">
-                    <h6 class="card-title">Alerta Inventario</h6>
-                    <ul id="alertsList" class="list-group list-group-flush">
-                      <!-- items dinámicos -->
-                      <li class="list-group-item">No alertas</li>
-                    </ul>
-                  </div>
-                </div>
-                <div class="card shadow-sm mb-3 card-report">
-                  <div class="card-body">
-                    <h6 class="card-title">Clientes</h6>
-                    <div class="table-responsive">
-                      <table id="clientsTable" class="table table-sm mb-0">
-                        <thead class="table-light">
-                          <tr>
-                            <th>Nombre</th>
-                            <th>Contacto</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <!-- dinámico -->
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-
                 <div class="card shadow-sm">
                   <div class="card-body">
                     <h6 class="card-title">Reportes</h6>
                     <div class="d-grid gap-2">
                       <a href="pages/reportes.html" class="btn btn-outline-success">Generar Reporte</a>
                     </div>
+                  </div>
+                </div>
+                <div class="card shadow-sm mb-3 card-report">
+                  <div class="card-body">
+                    <h6 class="card-title">Próximos a vencer</h6>
+                    <div class="table-responsive">
+                      <table id="expiryTable" class="table table-sm mb-0">
+                        <thead class="table-light">
+                          <tr>
+                            <th>Producto</th>
+                            <th>Vence</th>
+                            <th>Días</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <!-- dinámico: productos próximos a vencer -->
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+                <div class="card shadow-sm mb-3 card-report">
+                  <div class="card-body">
+                    <h6 class="card-title">Alertas bajo inventario</h6>
+                    <ul id="alertsList" class="list-group list-group-flush">
+                      <!-- items dinámicos -->
+                      <li class="list-group-item">No hay alertas</li>
+                    </ul>
                   </div>
                 </div>
               </div>
@@ -442,45 +444,63 @@
                           return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                         }
 
-                        // Rellena la tarjeta lateral de clientes (moved here so it's defined before use)
-                        function populateClientsCard(clients) {
-                          const clientsTbody = document.querySelector('#clientsTable tbody');
-                          if (!clientsTbody) return;
-                          clientsTbody.innerHTML = '';
+                        // Rellena la tarjeta lateral con productos próximos a vencer
+                        function populateExpiryCard(productos) {
+                          const tbody = document.querySelector('#expiryTable tbody');
+                          if (!tbody) return;
+                          tbody.innerHTML = '';
 
-                          if (!Array.isArray(clients) || clients.length === 0) {
-                            clientsTbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">Sin clientes</td></tr>';
+                          if (!Array.isArray(productos) || productos.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Sin productos</td></tr>';
                             return;
                           }
 
-                          // Preferir clientes más recientes si hay campos de fecha
-                          const hasDateField = clients.some(c => c.fecha_creacion || c.created_at || c.createdAt);
-                          let ordered = clients;
-                          if (hasDateField) {
-                            ordered = clients.slice().sort((a, b) => {
-                              const da = new Date(a.fecha_creacion || a.created_at || a.createdAt || 0).getTime() || 0;
-                              const db = new Date(b.fecha_creacion || b.created_at || b.createdAt || 0).getTime() || 0;
-                              return db - da; // descendente: más recientes primero
-                            });
+                          const today = new Date();
+                          const msPerDay = 24 * 60 * 60 * 1000;
+                          const thresholdDays = 30; // ajustar si desea otro intervalo
+
+                          const list = productos.map(p => {
+                            const fechaRaw = p.fecha_vencimiento ?? p.fechaVencimiento ?? p.expiry ?? null;
+                            const date = fechaRaw ? new Date(fechaRaw) : null;
+                            const days = (date && !isNaN(date.getTime())) ? Math.ceil((date - today) / msPerDay) : null;
+                            return { p, date, days };
+                          })
+                          .filter(it => it.date && (it.days <= thresholdDays))
+                          .sort((a,b) => a.date - b.date)
+                          .slice(0,5);
+
+                          if (list.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No hay productos próximos a vencer</td></tr>';
+                            return;
                           }
 
-                          // Mostrar hasta 5 clientes (los primeros o los más recientes)
-                          const listToShow = ordered.slice(0, 5);
+                          for (const it of list) {
+                            const nombre = it.p.nombre_producto ?? it.p.nombre ?? it.p.product_name ?? 'Sin nombre';
+                            const fechaStr = it.date ? it.date.toLocaleDateString() : '-';
+                            const id = it.p.id_producto ?? it.p.id ?? '';
 
-                          for (const c of listToShow) {
-                            const name = (c.nombre_completo ?? c.nombre ?? c.nombre_cliente ?? 'Sin nombre');
-                            const contact = (c.email ?? c.telefono ?? c.contacto ?? '-');
-                            const id = c.id_cliente ?? c.id ?? '';
-                            clientsTbody.insertAdjacentHTML('beforeend', `<tr data-id="${escapeHtml(id)}" class="client-row" style="cursor:pointer"><td>${escapeHtml(name)}</td><td>${escapeHtml(contact)}</td></tr>`);
+                            // determinar clase según días restantes: expirado -> rojo, <7 días -> amarillo
+                            let rowClass = 'expiry-row';
+                            let diasText = '-';
+                            if (it.days === null) {
+                              diasText = '-';
+                            } else if (it.days < 0) {
+                              diasText = `Vencido ${Math.abs(it.days)}d`;
+                              rowClass += ' table-danger';
+                            } else {
+                              diasText = `${it.days}d`;
+                              if (it.days < 7) rowClass += ' table-warning';
+                            }
+
+                            tbody.insertAdjacentHTML('beforeend', `<tr data-id="${escapeHtml(id)}" class="${rowClass}" style="cursor:pointer"><td>${escapeHtml(nombre)}</td><td>${escapeHtml(fechaStr)}</td><td>${escapeHtml(diasText)}</td></tr>`);
                           }
 
-                          // click en fila: navegar al gestor y pasar id mediante localStorage
-                          clientsTbody.querySelectorAll('tr.client-row').forEach(row => {
+                          // click en fila: navegar al inventario y pasar id del producto
+                          tbody.querySelectorAll('tr.expiry-row').forEach(row => {
                             row.addEventListener('click', () => {
                               const id = row.getAttribute('data-id');
-                              try { localStorage.setItem('selectedClientId', id); } catch (e) { /* ignore */ }
-                              // navegar al gestor de clientes
-                              window.location.href = 'pages/gestorClientesMenu.html';
+                              try { localStorage.setItem('selectedProductId', id); } catch (e) { }
+                              window.location.href = 'pages/inventario.html';
                             });
                           });
                         }
@@ -665,8 +685,8 @@
                           console.warn('Error calculando deltas de métricas (server compare):', e);
                         }
 
-                        // Poblar tarjeta lateral de clientes (uso función reutilizable abajo)
-                        try { populateClientsCard(clientes); } catch(e) { console.warn('Error llenando clientsTable:', e); }
+                        // Poblar tarjeta lateral con próximos a vencer usando productos ya cargados
+                        try { populateExpiryCard(productos); } catch(e) { console.warn('Error llenando expiryTable:', e); }
                       } catch (e) {
                         console.warn('Error calculando ventas/clientes hoy:', e);
                       }

@@ -1,0 +1,16 @@
+{
+  "name": "print-agent",
+  "version": "0.1.0",
+  "description": "Agente local para renderizar facturas HTML a PDF y enviarlas a la impresora Windows (USB)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "proyectoNaturista",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "puppeteer": "^24.15.0",
+    "pdf-to-printer": "^5.0.0"
+  }
+}

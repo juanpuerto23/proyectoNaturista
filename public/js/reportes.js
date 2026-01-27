@@ -258,6 +258,34 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = sorted.map(r => r.stock);
             drawChart({ type: 'bar', data: { labels, datasets: [{ label: 'Stock', data, backgroundColor: '#ffc107' }] }, options: { responsive: true } });
             updateMetricCards();
+        } else if (type === 'vencidos') {
+            // Reporte: productos vencidos (fecha_vencimiento < hoy)
+            const productos = await fetchJsonArray('/productos');
+            const hoy = new Date();
+            const msPerDay = 24 * 60 * 60 * 1000;
+            const expired = (Array.isArray(productos) ? productos : []).map(p => {
+                const fechaRaw = p.fecha_vencimiento ?? p.fechaVencimiento ?? p.expiry ?? null;
+                const date = fechaRaw ? new Date(fechaRaw) : null;
+                const dias = (date && !isNaN(date.getTime())) ? Math.ceil((date - hoy) / msPerDay) : null;
+                return { raw: p, date, dias };
+            }).filter(it => it.date && it.dias < 0)
+            .sort((a,b) => a.date - b.date);
+
+            const rows = expired.map(e => ({ id: e.raw.id_producto ?? e.raw.id ?? '', nombre: e.raw.nombre_producto ?? e.raw.nombre ?? '', fecha_vencimiento: e.date ? e.date.toISOString().slice(0,10) : '', dias_vencido: e.dias === null ? '' : Math.abs(e.dias) }));
+            const headers = ['id', 'nombre', 'fecha_vencimiento', 'dias_vencido'];
+            renderTable(headers, rows);
+            currentCsv = buildCsvFromRows(headers, rows);
+
+            // Chart: cantidad vencida por día (últimos 30 días)
+            const byDay = Object.create(null);
+            for (const e of expired) {
+                const d = e.date.toISOString().slice(0,10);
+                byDay[d] = (byDay[d] || 0) + 1;
+            }
+            const labels = Object.keys(byDay).sort();
+            const data = labels.map(l => byDay[l]);
+            drawChart({ type: 'bar', data: { labels, datasets: [{ label: 'Productos vencidos', data, backgroundColor: '#dc3545' }] }, options: { responsive: true } });
+            updateMetricCards();
         }
     });
 

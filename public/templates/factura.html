@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{{TITULO_FACTURA}}</title>
+
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 12px;
+            width: 380px;
+            margin: 0;
+            color: #000;
+        }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .bold { font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { font-size: 12px; padding: 6px 4px; }
+        hr { border-top: 1px dashed #000; margin: 6px 0; }
+        .small { font-size: 9px; }
+    </style>
+</head>
+
+<body>
+
+<div class="center">
+    <!-- <img src="data:image/png;base64,{{LOGO_BASE64}}" width="160"> -->
+</div>
+
+<div class="center bold">{{EMPRESA_NOMBRE}}</div>
+<div class="center">NIT: {{EMPRESA_NIT}}</div>
+<div class="center">{{EMPRESA_DIRECCION}}</div>
+
+<hr>
+
+<div><b>Factura de Venta</b></div>
+<div>No: {{NUMERO_FACTURA}}</div>
+<div>Fecha: {{FECHA}}</div>
+
+<hr>
+
+<div class="bold">Cliente</div>
+<div>{{CLIENTE_NOMBRE}}</div>
+<div>NIT: {{CLIENTE_NIT}}</div>
+
+<hr>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width:10%">Cant</th>
+            <th style="width:50%">Nombre</th>
+            <th style="width:16%">Precio</th>
+            <th style="width:16%">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{PRODUCTOS}}
+    </tbody>
+</table>
+
+<hr>
+
+<table>
+    <tr><td>Subtotal</td><td class="right">{{SUBTOTAL}}</td></tr>
+    <tr><td>IVA</td><td class="right">{{IVA}}</td></tr>
+    <tr class="bold"><td>Total</td><td class="right">{{TOTAL}}</td></tr>
+</table>
+
+<hr>
+
+<div>Forma de pago: {{FORMA_PAGO}}</div>
+<div>Medio: {{MEDIO_PAGO}}</div>
+<div>Cambio: {{CAMBIO}}</div>
+<div>Empleado: {{EMPLEADO}}</div>
+
+<hr>
+
+<div class="center">Documento validado por la DIAN - Resolución 000165 de 01-11-2023</div>
+
+<div class="center">{{TIPO_COPIA}}</div>
+
+</body>
+</html>

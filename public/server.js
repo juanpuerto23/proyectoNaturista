@@ -256,6 +256,38 @@ app.get('/proveedores', async (req, res) => {
   }
 });
 
+// Lista métodos de pago
+app.get('/metodos_pago', async (req, res) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase.from('metodos_pago').select('*').order('id_metodo_pago', { ascending: true });
+      if (error) throw error;
+      return res.json(data);
+    }
+    const rows = await sql`SELECT * FROM metodos_pago ORDER BY id_metodo_pago`;
+    res.json(rows);
+  } catch (err) {
+    console.error('Error al obtener métodos de pago:', err?.message ?? err);
+    res.status(500).json({ error: 'Error al obtener métodos de pago', detail: err?.message ?? String(err) });
+  }
+});
+
+// Lista usuarios (para obtener empleados/usuarios)
+app.get('/usuarios', async (req, res) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase.from('usuarios').select('*').order('id_usuario', { ascending: true });
+      if (error) throw error;
+      return res.json(data);
+    }
+    const rows = await sql`SELECT * FROM usuarios ORDER BY id_usuario`;
+    res.json(rows);
+  } catch (err) {
+    console.error('Error al obtener usuarios:', err?.message ?? err);
+    res.status(500).json({ error: 'Error al obtener usuarios', detail: err?.message ?? String(err) });
+  }
+});
+
 // Endpoint de diagnóstico: listar id_producto y nombre (o mostrar sample si columnas distintas)
 app.get('/productos/ids', async (req, res) => {
   try {
@@ -332,6 +364,14 @@ app.post('/api/supabase/query', async (req, res) => {
 app.post('/productos', async (req, res) => {
   const { nombre_producto, descripcion_producto, id_categoria, id_proveedor, stock_actual, precio_venta, fecha_vencimiento } = req.body;
   try {
+    // Preferir cliente Supabase cuando esté disponible (consistencia con otras rutas)
+    if (supabase) {
+      const insertObj = { nombre_producto, descripcion_producto, id_categoria, id_proveedor, stock_actual, precio_venta, fecha_vencimiento };
+      const { data, error } = await supabase.from('productos').insert([insertObj]).select();
+      if (error) throw error;
+      return res.json({ success: true, message: 'Producto agregado correctamente', row: data && data[0] });
+    }
+
     await sql`
       INSERT INTO productos (nombre_producto, descripcion_producto, id_categoria, id_proveedor, stock_actual, precio_venta, fecha_vencimiento)
       VALUES (${nombre_producto}, ${descripcion_producto}, ${id_categoria}, ${id_proveedor}, ${stock_actual}, ${precio_venta}, ${fecha_vencimiento})
@@ -339,7 +379,7 @@ app.post('/productos', async (req, res) => {
     res.json({ success: true, message: 'Producto agregado correctamente' });
   } catch (err) {
     console.error('Error al agregar producto:', err);
-    res.status(500).json({ error: 'Error de conexión con el servidor' });
+    res.status(500).json({ error: 'Error de conexión con el servidor', detail: err?.message ?? String(err) });
   }
 });
 
@@ -395,6 +435,181 @@ app.post('/proveedores', async (req, res) => {
       return res.status(409).json({ error: 'Clave duplicada: posible secuencia desincronizada o registro existente', detail: err?.message ?? String(err) });
     }
     res.status(500).json({ error: 'Error al crear proveedor', detail: err?.message ?? String(err) });
+  }
+});
+
+// Crear lote y procesar items (crear/actualizar productos). Body: { proveedor_id, proveedor_nuevo?, items: [{ sku, producto_id, nombre, id_categoria, cantidad, fecha_vencimiento }] }
+app.post('/lotes', async (req, res) => {
+  const body = req.body || {};
+  const items = Array.isArray(body.items) ? body.items : [];
+  if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'items requeridos' });
+
+  try {
+    // Supabase path
+    if (supabase) {
+      // 1) resolver/crear proveedor
+      let proveedorId = body.proveedor_id || null;
+      if (!proveedorId && body.proveedor_nuevo && (body.proveedor_nuevo.nombre_proveedor || body.proveedor_nuevo.nombre)) {
+        const provObj = {
+          nombre_proveedor: body.proveedor_nuevo.nombre_proveedor || body.proveedor_nuevo.nombre,
+          nit_proveedor: body.proveedor_nuevo.nit_proveedor || body.proveedor_nuevo.nit || null,
+          telefono_proveedor: body.proveedor_nuevo.telefono_proveedor || body.proveedor_nuevo.telefono || null,
+          email_proveedor: body.proveedor_nuevo.email_proveedor || body.proveedor_nuevo.email || null,
+          direccion_proveedor: body.proveedor_nuevo.direccion_proveedor || null,
+          contacto_proveedor: body.proveedor_nuevo.contacto_proveedor || null,
+          activo: true
+        };
+        const { data: pd, error: perr } = await supabase.from('proveedores').insert([provObj]).select();
+        if (perr) throw perr;
+        proveedorId = pd && pd[0] ? pd[0].id_proveedor ?? pd[0].id : proveedorId;
+      }
+
+      // 2) crear lote (guardaremos en observaciones el detalle para poder revertir si es necesario)
+      const createdItemsMeta = [];
+      // create lote row first to get id and attach to products
+      const loteObj = { id_proveedor: proveedorId || null, fecha_recepcion: body.fecha_recepcion || new Date().toISOString().slice(0,10), costo_envio: body.costo_envio || 0, total_lote: body.total_lote || 0, observaciones: null, estado: body.estado || 'RECIBIDO' };
+      const { data: loteData, error: loteErr } = await supabase.from('lotes').insert([loteObj]).select();
+      if (loteErr) throw loteErr;
+      const loteRow = loteData && loteData[0] ? loteData[0] : null;
+      const loteId = loteRow ? (loteRow.id_lote ?? loteRow.id) : null;
+
+      // 3) process each item: update existing or create new product; store prev_stock
+      for (const it of items) {
+        const sku = it.sku || null;
+        const prodId = it.producto_id || null;
+        const cantidad = Number(it.cantidad || 0) || 0;
+        const fecha_venc = it.fecha_vencimiento || null;
+        if (prodId) {
+          // fetch current
+          const { data: prodData, error: pGetErr } = await supabase.from('productos').select('*').eq('id_producto', prodId).limit(1).single();
+          if (pGetErr || !prodData) throw pGetErr || new Error('Producto no encontrado ' + prodId);
+          const prev = prodData.stock_actual || 0;
+          const newStock = prev + cantidad;
+          const updObj = { stock_actual: newStock, id_lote: loteId };
+          if (fecha_venc) updObj.fecha_vencimiento = fecha_venc;
+          const { error: updErr } = await supabase.from('productos').update(updObj).eq('id_producto', prodId);
+          if (updErr) throw updErr;
+          createdItemsMeta.push({ producto_id: prodId, cantidad, prev_stock: prev, created: false });
+        } else {
+          // create product
+          const createObj = { nombre_producto: it.nombre || ('Producto ' + (sku || '')), codigo_barras: sku || null, id_categoria: it.id_categoria || null, id_proveedor: proveedorId || null, stock_actual: cantidad, fecha_vencimiento: fecha_venc, id_lote: loteId, precio_venta: it.precio_venta || 0 };
+          const { data: newP, error: newPErr } = await supabase.from('productos').insert([createObj]).select();
+          if (newPErr) throw newPErr;
+          const newId = newP && newP[0] ? newP[0].id_producto ?? newP[0].id : null;
+          createdItemsMeta.push({ producto_id: newId, cantidad, prev_stock: 0, created: true });
+        }
+      }
+
+      // 4) update lote.observaciones with JSON of items meta
+      try {
+        const obs = { items: createdItemsMeta, meta: { created_at: new Date().toISOString(), user: req.ip } };
+        await supabase.from('lotes').update({ observaciones: JSON.stringify(obs) }).eq('id_lote', loteId);
+      } catch (e) { console.warn('No se pudo guardar observaciones del lote:', e); }
+
+      return res.json({ success: true, id_lote: loteId, items: createdItemsMeta });
+    }
+
+    // SQL fallback with transaction
+    if (!sql || sql.__disabled) return res.status(500).json({ error: 'DB no configurada para operaciones de lotes' });
+
+    const result = await sql.begin(async sqlTx => {
+      // 1) proveedor
+      let proveedorId = body.proveedor_id || null;
+      if (!proveedorId && body.proveedor_nuevo && (body.proveedor_nuevo.nombre_proveedor || body.proveedor_nuevo.nombre)) {
+        const prov = await sqlTx`INSERT INTO proveedores (nombre_proveedor, nit_proveedor, telefono_proveedor, email_proveedor, direccion_proveedor, contacto_proveedor, activo, fecha_creacion) VALUES (${body.proveedor_nuevo.nombre_proveedor || body.proveedor_nuevo.nombre}, ${body.proveedor_nuevo.nit_proveedor || null}, ${body.proveedor_nuevo.telefono_proveedor || null}, ${body.proveedor_nuevo.email_proveedor || null}, ${body.proveedor_nuevo.direccion_proveedor || null}, ${body.proveedor_nuevo.contacto_proveedor || null}, true, now()) RETURNING id_proveedor`;
+        proveedorId = prov && prov[0] ? prov[0].id_proveedor : proveedorId;
+      }
+
+      // 2) crear lote
+      const loteIns = await sqlTx`INSERT INTO lotes (id_proveedor, fecha_recepcion, costo_envio, total_lote, observaciones, estado, fecha_creacion) VALUES (${proveedorId}, ${body.fecha_recepcion || new Date().toISOString().slice(0,10)}, ${body.costo_envio || 0}, ${body.total_lote || 0}, ${null}, ${body.estado || 'RECIBIDO'}, now()) RETURNING id_lote`;
+      const loteId = loteIns && loteIns[0] ? loteIns[0].id_lote : null;
+      if (!loteId) throw new Error('No se pudo crear lote');
+
+      const itemsMeta = [];
+      for (const it of items) {
+        const sku = it.sku || null;
+        const prodId = it.producto_id || null;
+        const cantidad = Number(it.cantidad || 0) || 0;
+        const fecha_venc = it.fecha_vencimiento || null;
+        if (prodId) {
+          const rows = await sqlTx`SELECT stock_actual FROM productos WHERE id_producto = ${prodId} FOR UPDATE`;
+          const prev = Array.isArray(rows) && rows.length ? (rows[0].stock_actual || 0) : 0;
+          const newStock = prev + cantidad;
+          await sqlTx`UPDATE productos SET stock_actual = ${newStock}, fecha_vencimiento = COALESCE(${fecha_venc}, fecha_vencimiento), id_lote = ${loteId} WHERE id_producto = ${prodId}`;
+          itemsMeta.push({ producto_id: prodId, cantidad, prev_stock: prev, created: false });
+        } else {
+          const insertP = await sqlTx`INSERT INTO productos (nombre_producto, descripcion_producto, fecha_vencimiento, fecha_recepcion, precio_venta, precio_compra, stock_actual, stock_minimo, codigo_barras, unidad_medida, activo, fecha_creacion, id_categoria, id_lote, id_proveedor) VALUES (${it.nombre || ('Producto ' + (it.sku || ''))}, ${it.descripcion_producto || null}, ${it.fecha_vencimiento || null}, now(), ${it.precio_venta || 0}, ${it.precio_compra || null}, ${cantidad}, ${it.stock_minimo || 1}, ${it.sku || null}, ${it.unidad_medida || 'UNIDAD'}, true, now(), ${it.id_categoria || null}, ${loteId}, ${proveedorId}) RETURNING id_producto`;
+          const newId = insertP && insertP[0] ? insertP[0].id_producto : null;
+          itemsMeta.push({ producto_id: newId, cantidad, prev_stock: 0, created: true });
+        }
+      }
+
+      // guardar observaciones con itemsMeta
+      await sqlTx`UPDATE lotes SET observaciones = ${JSON.stringify({ items: itemsMeta, meta: { created_at: new Date().toISOString(), user: req.ip } })} WHERE id_lote = ${loteId}`;
+
+      return { success: true, id_lote: loteId, items: itemsMeta };
+    });
+
+    return res.json(result);
+  } catch (err) {
+    console.error('Error procesando /lotes:', err?.message ?? err);
+    res.status(500).json({ error: 'Error procesando lote', detail: err?.message ?? String(err) });
+  }
+});
+
+// Revertir lote (usar observaciones para conocer cambios). Body optional: { force: true }
+app.post('/lotes/:id/revert', async (req, res) => {
+  const id = req.params.id;
+  if (!id) return res.status(400).json({ error: 'id requerido' });
+  try {
+    if (supabase) {
+      const { data: lote, error: lerr } = await supabase.from('lotes').select('*').eq('id_lote', id).limit(1).single();
+      if (lerr || !lote) return res.status(404).json({ error: 'Lote no encontrado' });
+      let obs = null;
+      try { obs = JSON.parse(lote.observaciones || '{}'); } catch (e) { obs = null; }
+      const items = (obs && Array.isArray(obs.items)) ? obs.items : [];
+      // revert each
+      for (const it of items) {
+        const pid = it.producto_id;
+        if (!pid) continue;
+        if (it.created) {
+          // delete product created
+          await supabase.from('productos').delete().match({ id_producto: pid });
+        } else {
+          // restore previous stock and unset id_lote
+          await supabase.from('productos').update({ stock_actual: it.prev_stock }).eq('id_producto', pid);
+          await supabase.from('productos').update({ id_lote: null }).eq('id_producto', pid);
+        }
+      }
+      // delete lote
+      await supabase.from('lotes').delete().match({ id_lote: id });
+      return res.json({ success: true, reverted: items.length });
+    }
+
+    if (!sql || sql.__disabled) return res.status(500).json({ error: 'DB no configurada' });
+    const result = await sql.begin(async sqlTx => {
+      const lr = await sqlTx`SELECT * FROM lotes WHERE id_lote = ${id}`;
+      const lote = Array.isArray(lr) && lr.length ? lr[0] : null;
+      if (!lote) throw new Error('Lote no encontrado');
+      let obs = null;
+      try { obs = JSON.parse(lote.observaciones || '{}'); } catch (e) { obs = null; }
+      const items = (obs && Array.isArray(obs.items)) ? obs.items : [];
+      for (const it of items) {
+        const pid = it.producto_id;
+        if (!pid) continue;
+        if (it.created) {
+          await sqlTx`DELETE FROM productos WHERE id_producto = ${pid}`;
+        } else {
+          await sqlTx`UPDATE productos SET stock_actual = ${it.prev_stock}, id_lote = NULL WHERE id_producto = ${pid}`;
+        }
+      }
+      await sqlTx`DELETE FROM lotes WHERE id_lote = ${id}`;
+      return { success: true, reverted: items.length };
+    });
+    return res.json(result);
+  } catch (err) {
+    console.error('Error revirtiendo lote:', err?.message ?? err);
+    res.status(500).json({ error: 'Error revirtiendo lote', detail: err?.message ?? String(err) });
   }
 });
 
@@ -581,6 +796,38 @@ app.get('/ventas', async (req, res) => {
   } catch (err) {
     console.error('Error al obtener ventas:', err?.message ?? err);
     res.status(500).json({ error: 'Error al obtener ventas', detail: err?.message ?? String(err) });
+  }
+});
+
+// Listar detalle_ventas (para historial/detalles)
+app.get('/detalle_ventas', async (req, res) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase.from('detalle_ventas').select('*').order('id_detalle_venta', { ascending: false }).limit(2000);
+      if (error) throw error;
+      return res.json(data);
+    }
+    const rows = await sql`SELECT * FROM detalle_ventas ORDER BY id_detalle_venta DESC LIMIT 2000`;
+    res.json(rows);
+  } catch (err) {
+    console.error('Error al obtener detalle_ventas:', err?.message ?? err);
+    res.status(500).json({ error: 'Error al obtener detalle_ventas', detail: err?.message ?? String(err) });
+  }
+});
+
+// Listar empleados (para selects en facturación)
+app.get('/empleados', async (req, res) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase.from('empleados').select('*').order('id_empleado', { ascending: true });
+      if (error) throw error;
+      return res.json(data);
+    }
+    const rows = await sql`SELECT * FROM empleados ORDER BY id_empleado`;
+    res.json(rows);
+  } catch (err) {
+    console.error('Error al obtener empleados:', err?.message ?? err);
+    res.status(500).json({ error: 'Error al obtener empleados', detail: err?.message ?? String(err) });
   }
 });
 
@@ -945,3 +1192,56 @@ app.post('/admin/sync-sequences', async (req, res) => {
     return res.status(500).json({ error: 'Error sincronizando secuencias', detail: err?.message ?? String(err) });
   }
 });
+
+// Comunicacion para imprimir facturas
+app.use(express.json());
+
+app.post('/imprimir', async (req, res) => {
+  try {
+    const { html, nombreImpresora } = req.body;
+
+    if (!html) {
+      return res.status(400).json({ ok: false, message: 'HTML vacío' });
+    }
+
+    const respuestaPlugin = await fetch("http://localhost:3000/imprimir", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        nombreImpresora: nombreImpresora || "XPrinter",
+        serial: "",
+        operaciones: [
+          {
+            nombre: "GenerarImagenAPartirDeHtmlEImprimir",
+            argumentos: [
+              html,   // 🔥 ESTE HTML ES TU FACTURA
+              380,
+              380,
+              0,
+              false
+            ]
+          }
+        ]
+      })
+    });
+
+    const resultado = await respuestaPlugin.json();
+    if (!resultado.ok) {
+    return res.status(500).json(resultado);
+    }
+    res.json({ ok: true });
+
+  } catch (error) {
+    console.error("Error backend impresión:", error);
+    res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+
+app.listen(3000, () => {
+  console.log('Servidor de impresión corriendo en http://localhost:3000');
+});
+
+

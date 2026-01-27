@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // elementos
     const tbody = document.querySelector('#tabla-productos tbody');
     const inputBusqueda = $('busquedaNombre');
+    const inputCodigo = $('busquedaCodigo');
     const btnGuardar = $('btnGuardar');
     const selectCategorias = $('p_category');
     const selectProveedores = $('p_supplier');
@@ -16,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const categoryMap = Object.create(null);
     const supplierMap = Object.create(null);
+    let suppliersList = [];
 
     let productos = [];
 
@@ -47,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cargar categorías (con manejo de errores)
     async function cargarCategorias() {
         try {
-            const data = await fetchJson('http://localhost:3000/categorias');
+            const data = await fetchJson('/categorias');
             // si select no existe, avisar y salir
             if (!selectCategorias) {
                 console.warn('selectCategorias no encontrado en el DOM');
@@ -74,14 +76,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cargar proveedores
     async function cargarProveedores() {
         try {
-            const data = await fetchJson('http://localhost:3000/proveedores');
+            const data = await fetchJson('/proveedores');
             if (!selectProveedores) {
                 console.warn('selectProveedores no encontrado en el DOM');
                 return;
             }
             selectProveedores.innerHTML = '<option value="">Filtrar: proveedor</option>';
-            if (Array.isArray(data) && data.length) {
-                data.forEach(p => {
+            suppliersList = Array.isArray(data) ? data : [];
+            if (Array.isArray(suppliersList) && suppliersList.length) {
+                suppliersList.forEach(p => {
                     const id = (p.id_proveedor ?? p.id ?? p.id_proveedor)?.toString() ?? '';
                     const nombre = p.nombre_proveedor ?? p.nombre ?? p.nombre_proveedor;
                     selectProveedores.insertAdjacentHTML('beforeend', `<option value="${id}">${nombre}</option>`);
@@ -96,10 +99,429 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // -- Lot reception: provider autocomplete & inline create (MVP) --
+    function populateProvidersDatalist() {
+        try {
+            const dl = document.getElementById('providersList');
+            if (!dl) return;
+            dl.innerHTML = '';
+            suppliersList.forEach(p => {
+                const name = p.nombre_proveedor ?? p.nombre ?? '';
+                const opt = document.createElement('option');
+                opt.value = name;
+                dl.appendChild(opt);
+            });
+        } catch (e) { console.warn('populateProvidersDatalist error', e); }
+    }
+
+    function findSupplierByName(name) {
+        if (!name) return null;
+        const n = name.toString().trim().toLowerCase();
+        return suppliersList.find(p => (p.nombre_proveedor ?? p.nombre ?? '').toString().toLowerCase() === n) || null;
+    }
+
+    // Handlers for modalReceiveLot
+    function initReceiveLotModal() {
+        const search = document.getElementById('lot_provider_search');
+        const hid = document.getElementById('lot_provider_id');
+        const info = document.getElementById('lot_provider_info');
+        const createBtn = document.getElementById('lot_create_provider_btn');
+        const newForm = document.getElementById('lot_new_provider_form');
+        const cancelNew = document.getElementById('lot_cancel_create_provider');
+        const saveNew = document.getElementById('lot_save_provider');
+        const addRow = document.getElementById('lot_add_row');
+        const lotCatSelects = () => Array.from(document.querySelectorAll('.lot-cat'));
+
+        if (!search) return;
+
+        // fill datalist initially
+        populateProvidersDatalist();
+
+        search.addEventListener('input', (e) => {
+            const val = e.target.value || '';
+            const found = findSupplierByName(val);
+            if (found) {
+                hid.value = String(found.id_proveedor ?? found.id ?? '');
+                info.textContent = `Seleccionado: ${found.nombre_proveedor ?? found.nombre} — ${found.telefono_proveedor ?? found.telefono ?? ''}`;
+                newForm.style.display = 'none';
+            } else {
+                hid.value = '';
+                info.textContent = 'Proveedor no encontrado. Presiona "Crear proveedor" para agregar.';
+            }
+        });
+
+        createBtn.addEventListener('click', () => {
+            newForm.style.display = newForm.style.display === 'none' ? 'block' : 'none';
+        });
+
+        cancelNew.addEventListener('click', () => {
+            newForm.style.display = 'none';
+        });
+
+        saveNew.addEventListener('click', async () => {
+            const nombre = (document.getElementById('lot_prov_nombre')?.value || '').trim();
+            const nit = (document.getElementById('lot_prov_nit')?.value || '').trim();
+            const telefono = (document.getElementById('lot_prov_telefono')?.value || '').trim();
+            const email = (document.getElementById('lot_prov_email')?.value || '').trim();
+            const direccion = (document.getElementById('lot_prov_direccion')?.value || '').trim();
+            const contacto = (document.getElementById('lot_prov_contacto')?.value || '').trim();
+            if (!nombre) return alert('El nombre del proveedor es obligatorio');
+            try {
+                const res = await fetch('/proveedores', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre_proveedor: nombre, nit_proveedor: nit, telefono_proveedor: telefono, email_proveedor: email, direccion_proveedor: direccion, contacto_proveedor: contacto })
+                });
+                if (!res.ok) {
+                    const txt = await res.text().catch(() => '');
+                    console.error('POST /proveedores falló', res.status, txt);
+                    return alert('Error al guardar proveedor (ver consola)');
+                }
+                const body = await res.json().catch(() => ({}));
+                if (body.success && body.id) {
+                    // reload suppliers list
+                    await cargarProveedores();
+                    populateProvidersDatalist();
+                    // set selected
+                    const createdId = body.id ?? body.insertId ?? body.id_proveedor ?? null;
+                    document.getElementById('lot_provider_id').value = String(createdId);
+                    document.getElementById('lot_provider_search').value = nombre;
+                    document.getElementById('lot_provider_info').textContent = `Proveedor creado: ${nombre}`;
+                    newForm.style.display = 'none';
+                } else {
+                    alert('Error al crear proveedor: ' + (body.error || JSON.stringify(body)));
+                }
+            } catch (err) {
+                console.error('Error guardando proveedor inline:', err);
+                alert('Error de conexión al guardar proveedor');
+            }
+        });
+
+        // add row handler (simple append)
+        if (addRow) addRow.addEventListener('click', () => {
+            const tbodyLot = document.getElementById('lotLinesTbody');
+            if (!tbodyLot) return;
+            const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><input class="form-control form-control-sm lot-sku"></td>
+                            <td><input class="form-control form-control-sm lot-name"></td>
+                            <td><input type="number" class="form-control form-control-sm lot-qty" min="0"></td>
+                            <td><input type="date" class="form-control form-control-sm lot-exp"></td>
+                            <td><select class="form-select form-select-sm lot-cat"><option value="">Categoría</option></select></td> 
+                        `;
+            tbodyLot.appendChild(tr);
+            // populate category selects
+            const catSelect = tr.querySelector('.lot-cat');
+            if (catSelect) {
+                catSelect.innerHTML = '<option value="">Categoría</option>' + Object.entries(categoryMap).map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
+            }
+            // update remove-last button state
+            try { updateRemoveLastButtonState(); } catch (e) {}
+        });
+
+        
+
+        // open handler: populate categories select in existing row(s)
+        const modalEl = document.getElementById('modalReceiveLot');
+        if (modalEl) {
+            modalEl.addEventListener('show.bs.modal', () => {
+                populateProvidersDatalist();
+                // fill categories in existing lot-cat selects
+                document.querySelectorAll('.lot-cat').forEach(sel => {
+                    if (sel.options.length <= 1) sel.innerHTML = '<option value="">Categoría</option>' + Object.entries(categoryMap).map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
+                });
+                try { updateRemoveLastButtonState(); } catch (e) {}
+            });
+
+            // delegated click handler inside modal to catch 'Crear producto' buttons
+            modalEl.addEventListener('click', (ev) => {
+                const btn = ev.target.closest('.lot-create-link');
+                if (!btn) return;
+                const sku = btn.getAttribute('data-sku') || '';
+                try {
+                    const modal = document.getElementById('modalNuevo');
+                    // hide receive-lot modal first
+                    try { bootstrap.Modal.getInstance(modalEl)?.hide(); } catch (e) { }
+                    try { document.getElementById('p_sku').value = sku; } catch (e) { }
+                    try { document.getElementById('p_name').focus(); } catch (e) { }
+                    try { bootstrap.Modal.getOrCreateInstance(modal).show(); } catch (e) { }
+                } catch (e) { console.warn('open create product failed', e); }
+            });
+        }
+
+        // bind footer buttons: clear rows, revert last
+        const btnClear = document.getElementById('lot_clear_rows');
+        const btnRevert = document.getElementById('lot_revert_last');
+        if (btnClear) btnClear.addEventListener('click', () => { if (confirm('Limpiar todas las filas del lote?')) clearLotRows(); });
+        if (btnRevert) btnRevert.addEventListener('click', () => { revertLastLote(); });
+
+        // preview send button
+        const sendBtn = document.getElementById('lotSendBtn');
+        if (sendBtn) sendBtn.addEventListener('click', async () => {
+            try {
+                const payload = buildLotePayloadFromModal();
+                sendBtn.disabled = true; sendBtn.textContent = 'Enviando...';
+                const resp = await sendLotePayload(payload);
+                sendBtn.disabled = false; sendBtn.textContent = 'Enviar lote';
+                if (resp && (resp.success || resp.id_lote)) {
+                    const loteId = resp.id_lote || resp.id || (resp.row && resp.row.id_lote) || null;
+                    if (loteId) localStorage.setItem('lastLoteId', String(loteId));
+                    alert('Lote creado correctamente: ' + JSON.stringify(resp));
+                    try { bootstrap.Modal.getInstance(document.getElementById('modalLotPreview'))?.hide(); } catch (e) {}
+                    try { bootstrap.Modal.getInstance(document.getElementById('modalReceiveLot'))?.hide(); } catch (e) {}
+                    await cargarProductos();
+                } else {
+                    alert('Respuesta inesperada del servidor: ' + JSON.stringify(resp));
+                }
+            } catch (err) {
+                console.error('Error enviando lote:', err);
+                alert('Error enviando lote: ' + (err.message || err));
+            } finally {
+                sendBtn.disabled = false; sendBtn.textContent = 'Enviar lote';
+            }
+        });
+        // delegated remove-row handler
+        const tbodyLot = document.getElementById('lotLinesTbody');
+        if (tbodyLot) {
+            tbodyLot.addEventListener('click', (ev) => {
+                const btn = ev.target.closest('.lot-remove-row');
+                if (!btn) return;
+                const tr = btn.closest('tr');
+                if (!tr) return;
+                if (!confirm('Eliminar esta fila del lote?')) return;
+                // remove any inline hint associated to this row
+                try { const h = tr.querySelector('.lot-hint'); if (h) h.remove(); } catch (e) {}
+                tr.remove();
+                try { updateRemoveLastButtonState(); } catch (e) {}
+            });
+        }
+    }
+
+    // enable/disable remove-last button depending on number of rows
+    function updateRemoveLastButtonState() {
+        const btn = document.getElementById('lot_remove_last');
+        const tbodyLot = document.getElementById('lotLinesTbody');
+        if (!btn || !tbodyLot) return;
+        const rows = Array.from(tbodyLot.querySelectorAll('tr'));
+        if (rows.length <= 1) {
+            btn.disabled = true;
+        } else {
+            btn.disabled = false;
+        }
+    }
+
+    // handler to remove last row
+    function initRemoveLastHandler() {
+        const btn = document.getElementById('lot_remove_last');
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+            const tbodyLot = document.getElementById('lotLinesTbody');
+            if (!tbodyLot) return;
+            const rows = Array.from(tbodyLot.querySelectorAll('tr'));
+            if (rows.length <= 1) return; // safety
+            const last = rows[rows.length - 1];
+            if (!last) return;
+            // eliminar la última fila directamente (sin confirmación)
+            last.remove();
+            try { updateRemoveLastButtonState(); } catch (e) {}
+        });
+    }
+
+    // utility: build lote payload and preview text
+    function buildLotePayloadFromModal() {
+        const providerId = (document.getElementById('lot_provider_id')?.value || '').toString();
+        const providerName = (document.getElementById('lot_provider_search')?.value || '').toString().trim();
+        const providerNew = providerId ? null : { nombre_proveedor: providerName };
+        const rows = Array.from(document.querySelectorAll('#lotLinesTbody tr'));
+        const items = [];
+        for (const r of rows) {
+            const sku = (r.querySelector('.lot-sku')?.value || '').toString().trim();
+            const qty = parseInt(r.querySelector('.lot-qty')?.value || '0', 10) || 0;
+            if (!sku && qty === 0) continue;
+            const prodId = r.getAttribute('data-product-id') || null;
+            const nombre = (r.querySelector('.lot-name')?.value || '').toString().trim();
+            const fecha_venc = (r.querySelector('.lot-exp')?.value || '') || null;
+            const id_categoria = (r.querySelector('.lot-cat')?.value || '') || null;
+            items.push({ sku, producto_id: prodId, nombre, id_categoria, cantidad: qty, fecha_vencimiento: fecha_venc });
+        }
+        return { proveedor_id: providerId || null, proveedor_nuevo: providerNew, items };
+    }
+
+    // send lote to server (used by preview send button)
+    async function sendLotePayload(payload) {
+        const resp = await fetch('/lotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!resp.ok) {
+            const txt = await resp.text().catch(() => '');
+            throw new Error(`HTTP ${resp.status} ${txt}`);
+        }
+        return await resp.json();
+    }
+
+    // clear lot rows helper
+    function clearLotRows() {
+        const tbodyLot = document.getElementById('lotLinesTbody');
+        if (!tbodyLot) return;
+        tbodyLot.innerHTML = '';
+        // add one empty row
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+                    <td><input class="form-control form-control-sm lot-sku"></td>
+                    <td><input class="form-control form-control-sm lot-name"></td>
+                    <td><input type="number" class="form-control form-control-sm lot-qty" min="0"></td>
+                    <td><input type="date" class="form-control form-control-sm lot-exp"></td>
+                    <td><select class="form-select form-select-sm lot-cat"><option value="">Categoría</option></select></td>
+        `;
+        tbodyLot.appendChild(tr);
+        document.querySelectorAll('.lot-cat').forEach(sel => { if (sel.options.length <= 1) sel.innerHTML = '<option value="">Categoría</option>' + Object.entries(categoryMap).map(([id, name]) => `<option value="${id}">${name}</option>`).join(''); });
+        try { updateRemoveLastButtonState(); } catch (e) {}
+    }
+
+    // revert last lote helper (calls server)
+    async function revertLastLote() {
+        const last = localStorage.getItem('lastLoteId');
+        if (!last) return alert('No hay lote reciente para revertir');
+        if (!confirm(`Revertir el lote ${last}? Esto intentará deshacer cambios (irreversible).`)) return;
+        try {
+            const res = await fetch(`/lotes/${encodeURIComponent(last)}/revert`, { method: 'POST' });
+            if (!res.ok) {
+                const txt = await res.text().catch(() => '');
+                throw new Error(`HTTP ${res.status} ${txt}`);
+            }
+            const body = await res.json();
+            alert('Revertido: ' + JSON.stringify(body));
+            await cargarProductos();
+            localStorage.removeItem('lastLoteId');
+        } catch (err) {
+            console.error('Error revertiendo lote:', err);
+            alert('Error revertiendo lote: ' + (err.message || err));
+        }
+    }
+
+    // SKU lookup within modal rows (debounced)
+    function initLotSkuHandlers() {
+        const tbodyLot = document.getElementById('lotLinesTbody');
+        if (!tbodyLot) return;
+
+        const debounce = (fn, wait) => {
+            let t = null;
+            return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+        };
+
+        async function lookupSkuInRow(input) {
+            const tr = input.closest('tr');
+            if (!tr) return;
+            const sku = (input.value || '').toString().trim();
+            const nameInput = tr.querySelector('.lot-name');
+            const catSelect = tr.querySelector('.lot-cat');
+            const qtyInput = tr.querySelector('.lot-qty');
+            const expInput = tr.querySelector('.lot-exp');
+
+            if (!sku) {
+                tr.removeAttribute('data-product-id');
+                tr.removeAttribute('data-missing');
+                if (nameInput) nameInput.value = '';
+                const hint = tr.querySelector('.lot-hint'); if (hint) hint.remove();
+                // do not show global error here; only when user clicks preview
+                return;
+            }
+
+            // Match only when the entered value equals the product's id (exact match)
+            let prod = productos.find(p => String(p.id_producto ?? p.id ?? '') === sku);
+            if (!prod) {
+                // try server-side query but accept result only if its id matches exactly
+                try {
+                    const resp = await fetch(`/productos?sku=${encodeURIComponent(sku)}`);
+                    if (resp.ok) {
+                        const j = await resp.json().catch(() => null);
+                        let candidate = null;
+                        if (j) {
+                            if (Array.isArray(j) && j.length) candidate = j[0];
+                            else candidate = j;
+                        }
+                        if (candidate && String(candidate.id_producto ?? candidate.id ?? '') === sku) prod = candidate;
+                    }
+                } catch (e) { /* ignore */ }
+            }
+
+            if (prod) {
+                tr.setAttribute('data-product-id', String(prod.id_producto ?? prod.id ?? ''));
+                tr.removeAttribute('data-missing');
+                if (nameInput) nameInput.value = prod.nombre_producto ?? prod.nombre ?? '';
+                if (catSelect) catSelect.value = String(prod.id_categoria ?? prod.id_categoria ?? prod.categoria_id ?? '');
+                // show current stock as small hint (inline)
+                let hint = tr.querySelector('.lot-hint');
+                if (!hint) { hint = document.createElement('div'); hint.className = 'lot-hint small text-muted mt-1'; tr.querySelector('td')?.appendChild(hint); }
+                hint.className = 'lot-hint small text-muted mt-1';
+                hint.textContent = `Stock actual: ${prod.stock_actual ?? prod.stock ?? 0}`;
+                // lock fields that should not change for existing products
+                if (nameInput) nameInput.disabled = true;
+                if (catSelect) catSelect.disabled = true;
+                // do not show global error here; only when user clicks preview
+            } else {
+                tr.removeAttribute('data-product-id');
+                tr.setAttribute('data-missing', '1');
+                if (nameInput) { nameInput.value = ''; nameInput.disabled = false; }
+                if (catSelect) catSelect.disabled = false;
+                const hint = tr.querySelector('.lot-hint');
+                if (!hint) { const h = document.createElement('div'); h.className = 'lot-hint small text-danger mt-1'; tr.querySelector('td')?.appendChild(h); }
+                const hint2 = tr.querySelector('.lot-hint');
+                // show inline red message and a create button
+                hint2.className = 'lot-hint small text-danger mt-1';
+                hint2.innerHTML = `No existe este producto en la base de datos. <button type="button" class="btn btn-sm btn-outline-primary ms-2 lot-create-link" data-sku="${sku}">Crear producto</button>`;
+                // do not show form-level error here; it will be shown on preview click if needed
+            }
+        }
+
+        tbodyLot.addEventListener('input', debounce((ev) => {
+            const input = ev.target;
+            if (!input) return;
+            if (input.classList.contains('lot-sku')) lookupSkuInRow(input);
+        }, 300));
+    }
+
+    // (missing-product row helpers removed — using inline hint element instead)
+
+    // Confirm reception: validate rows, preview and attempt to save
+    async function initLotConfirmHandler() {
+        const btn = document.getElementById('lot_confirm_btn');
+        if (!btn) return;
+
+        // show preview modal and wait for user to click Send
+        btn.addEventListener('click', async () => {
+            try {
+                // if any row is marked missing, block and show error
+                const missingRows = Array.from(document.querySelectorAll('#lotLinesTbody tr[data-missing="1"]'));
+                const formErr = document.getElementById('lot_form_error');
+                if (missingRows.length > 0) {
+                    if (formErr) { formErr.textContent = 'Hay filas con SKUs no encontrados. Crea los productos o elimínalas antes de continuar.'; formErr.classList.remove('d-none'); }
+                    missingRows[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                }
+
+                const payload = buildLotePayloadFromModal();
+                if (!payload.items || payload.items.length === 0) return alert('No hay líneas para procesar');
+                if (!payload.proveedor_id && (!payload.proveedor_nuevo || !payload.proveedor_nuevo.nombre_proveedor)) return alert('Selecciona o crea un proveedor');
+                // build preview text
+                const preview = [];
+                preview.push(payload.proveedor_id ? `Proveedor ID: ${payload.proveedor_id}` : `Crear proveedor: ${payload.proveedor_nuevo.nombre_proveedor}`);
+                for (const it of payload.items) {
+                    if (it.producto_id) preview.push(`Actualizar producto ${it.producto_id}: +${it.cantidad}`);
+                    else preview.push(`Crear producto ${it.sku || ''} (${it.nombre}) con ${it.cantidad}`);
+                }
+                if (formErr) formErr.classList.add('d-none');
+                document.getElementById('lotPreviewContent').textContent = preview.join('\n');
+                const modal = new bootstrap.Modal(document.getElementById('modalLotPreview'));
+                modal.show();
+            } catch (err) {
+                console.error('Error preparando preview:', err);
+                alert('Error preparando vista previa: ' + (err.message || err));
+            }
+        });
+    }
+
     // Cargar productos
     async function cargarProductos() {
         try {
-            const data = await fetchJson('http://localhost:3000/productos');
+            const data = await fetchJson('/productos');
             if (!Array.isArray(data)) {
                 console.error('Respuesta de /productos no es array:', data);
                 productos = [];
@@ -207,10 +629,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!id) return;
             if (!confirm(`¿Eliminar producto con ID ${id}?`)) return;
             try {
-                const res = await fetch(`http://localhost:3000/productos/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                const res = await fetch(`/productos/${encodeURIComponent(id)}`, { method: 'DELETE' });
                 if (!res.ok) {
                     const txt = await res.text().catch(() => '');
-                    console.error('DELETE http://localhost:3000/productos falló', res.status, txt);
+                    console.error('DELETE /productos falló', res.status, txt);
                     alert('Error al eliminar producto (ver consola).');
                     return;
                 }
@@ -239,10 +661,24 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('Input de búsqueda no encontrado (id=busquedaNombre).');
     }
 
+    // búsqueda por código/ID en tiempo real (opcional)
+    if (inputCodigo) {
+        inputCodigo.addEventListener('input', e => {
+            const code = (e.target.value || '').toString().toLowerCase().trim();
+            if (!code) return renderTabla(productos);
+            const filtrados = productos.filter(p => {
+                const fields = [p.id_producto, p.id, p.codigo_barras, p.codigo, p.sku].map(x => (x||'').toString().toLowerCase()).join(' ');
+                return fields.includes(code);
+            });
+            renderTabla(filtrados);
+        });
+    }
+
     // Filtrado por botón superior (usa input + selects)
     if (btnBuscarTop) {
         btnBuscarTop.addEventListener('click', () => {
             const q = (inputBusqueda?.value || '').toString().toLowerCase().trim();
+            const code = (inputCodigo?.value || '').toString().toLowerCase().trim();
             const cat = (filtroCategoria?.value || '').toString();
             const prov = (filtroProveedor?.value || '').toString();
 
@@ -250,6 +686,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (q) {
                     const name = (p.nombre_producto ?? p.nombre ?? '').toString().toLowerCase();
                     if (!name.includes(q)) return false;
+                }
+                if (code) {
+                    const fields = [p.id_producto, p.id, p.codigo_barras, p.codigo, p.sku].map(x => (x||'').toString().toLowerCase()).join(' ');
+                    if (!fields.includes(code)) return false;
                 }
                 if (cat) {
                     const pidCat = (p.id_categoria ?? p.idCategoria ?? p.categoria_id ?? '')?.toString() ?? '';
@@ -336,6 +776,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else {
                     // POST nuevo
+                    // Validar que el código/ID no exista ya en productos
+                    const exists = productos.find(p => String(p.id_producto ?? p.id ?? p.codigo_barras ?? p.codigo ?? p.sku ?? '') === String(idProducto));
+                    if (exists) {
+                        return alert('Ya existe un producto con ese código/ID. Por favor usa otro código o edita el producto existente.');
+                    }
                     const res = await fetch('http://localhost:3000/productos', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -371,6 +816,11 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await Promise.all([cargarCategorias(), cargarProveedores(), cargarProductos()]);
             safeLog('Inicialización completa');
+            // init receive lot modal handlers
+            try { initReceiveLotModal(); } catch (e) { console.warn('initReceiveLotModal failed', e); }
+            try { initLotSkuHandlers(); } catch (e) { console.warn('initLotSkuHandlers failed', e); }
+            try { initLotConfirmHandler(); } catch (e) { console.warn('initLotConfirmHandler failed', e); }
+            try { initRemoveLastHandler(); } catch (e) { console.warn('initRemoveLastHandler failed', e); }
         } catch (err) {
             safeLog('Inicialización parcial con errores', err);
         }
